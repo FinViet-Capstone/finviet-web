@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Users, Wallet, ArrowLeftRight, Sparkles, DollarSign, TrendingUp } from 'lucide-react';
+import { Users, UserCheck, ArrowLeftRight, Sparkles, DollarSign, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { PageHeader } from '../components/PageHeader';
 import { StatCard } from '../components/StatCard';
+import { InfoTooltip } from '../components/InfoTooltip';
 import { analyticsApi } from '../api/analytics';
 import { formatNumber, formatUsd } from '../lib/format';
 
@@ -38,19 +39,22 @@ export default function DashboardPage() {
           icon={Users}
           label="Tổng người dùng"
           value={summaryQuery.isLoading ? '...' : formatNumber(s?.totalUsers)}
-          hint={`Đang hoạt động: ${formatNumber(s?.activeUsers ?? 0)}`}
+          hint={`Đang kích hoạt: ${formatNumber(s?.activeUsers ?? 0)}`}
+          tooltip="Tổng số tài khoản trong bảng users. 'Đang kích hoạt' đếm user có active = true (chưa bị khoá)."
           tone="brand"
         />
         <StatCard
-          icon={Wallet}
-          label="Tổng số ví"
-          value={summaryQuery.isLoading ? '...' : formatNumber(s?.totalWallets)}
+          icon={UserCheck}
+          label="Người dùng hoạt động hôm nay"
+          value={summaryQuery.isLoading ? '...' : formatNumber(s?.dailyActiveUsers)}
+          tooltip="DAU = COUNT(DISTINCT user_id) FROM transactions WHERE occurred_on = hôm nay. Đo số user thực sự dùng app trong ngày."
           tone="blue"
         />
         <StatCard
           icon={ArrowLeftRight}
-          label="Tổng giao dịch"
-          value={summaryQuery.isLoading ? '...' : formatNumber(s?.totalTransactions)}
+          label="Giao dịch hôm nay"
+          value={summaryQuery.isLoading ? '...' : formatNumber(s?.transactionsToday)}
+          tooltip="COUNT(*) FROM transactions WHERE occurred_on = hôm nay. Phản ánh khối lượng ghi nhận giao dịch trong ngày."
           tone="violet"
         />
         <StatCard
@@ -58,6 +62,7 @@ export default function DashboardPage() {
           label="AI calls hôm nay"
           value={summaryQuery.isLoading ? '...' : formatNumber(s?.aiCallsToday)}
           hint={`Chi phí: ${formatUsd(s?.aiCostToday ?? 0)}`}
+          tooltip="COUNT(*) FROM ai_usage WHERE occurred_on = hôm nay (mọi loại: phân loại, chat, báo cáo). Chi phí = SUM(cost_usd) cùng điều kiện."
           tone="amber"
         />
       </div>
@@ -66,8 +71,11 @@ export default function DashboardPage() {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Người dùng hoạt động hằng ngày</h3>
-              <p className="text-xs text-slate-500">30 ngày gần nhất</p>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-semibold text-slate-900">Người dùng hoạt động hằng ngày</h3>
+                <InfoTooltip text="Mỗi điểm = COUNT(DISTINCT user_id) FROM transactions WHERE occurred_on = ngày đó. Phản ánh số user thực sự dùng app mỗi ngày." />
+              </div>
+              <p className="text-xs text-slate-500">30 ngày gần nhất · nguồn: bảng transactions</p>
             </div>
             <TrendingUp className="w-5 h-5 text-brand-600" />
           </div>
@@ -87,8 +95,11 @@ export default function DashboardPage() {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-semibold text-slate-900">Giao dịch theo ngày</h3>
-              <p className="text-xs text-slate-500">30 ngày gần nhất</p>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-semibold text-slate-900">Giao dịch theo ngày</h3>
+                <InfoTooltip text="Mỗi cột = COUNT(*) FROM transactions WHERE occurred_on = ngày đó. Tính cả giao dịch nhập tay, AI gán và import từ SMS/CSV." />
+              </div>
+              <p className="text-xs text-slate-500">30 ngày gần nhất · nguồn: bảng transactions</p>
             </div>
             <ArrowLeftRight className="w-5 h-5 text-violet-600" />
           </div>
@@ -109,11 +120,17 @@ export default function DashboardPage() {
       <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-semibold text-slate-900">Mức độ sử dụng AI</h3>
-            <p className="text-xs text-slate-500">Số lượt gọi OpenAI · 14 ngày</p>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-slate-900">Mức độ sử dụng AI</h3>
+              <InfoTooltip text="Mỗi điểm = COUNT(*) FROM ai_usage WHERE occurred_on = ngày đó. Gộp mọi loại lượt gọi (phân loại giao dịch, chat, sinh báo cáo tuần)." />
+            </div>
+            <p className="text-xs text-slate-500">Số lượt gọi OpenAI · 14 ngày · nguồn: bảng ai_usage</p>
           </div>
           <div className="text-right">
-            <div className="text-xs text-slate-500">Chi phí tháng này</div>
+            <div className="flex items-center justify-end gap-1.5 text-xs text-slate-500">
+              <span>Chi phí tháng này</span>
+              <InfoTooltip text="SUM(cost_usd) FROM ai_usage trong tháng hiện tại (từ ngày 1 đến cuối tháng). Quy đổi USD theo provider trả về." placement="left" width="w-56" />
+            </div>
             <div className="font-bold text-slate-900 flex items-center gap-1">
               <DollarSign className="w-4 h-4 text-amber-600" />
               {formatUsd(s?.aiCostMonth ?? 0)}

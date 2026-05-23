@@ -6,6 +6,7 @@ export interface SystemAnalytics {
   activeUsers: number;
   dailyActiveUsers: number;
   totalTransactions: number;
+  transactionsToday: number;
   totalWallets: number;
   totalBudgets: number;
   aiCallsToday: number;

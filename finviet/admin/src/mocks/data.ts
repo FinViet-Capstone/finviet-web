@@ -23,6 +23,7 @@ export const MOCK_SYSTEM_ANALYTICS: SystemAnalytics = {
   activeUsers: 1134,
   dailyActiveUsers: 312,
   totalTransactions: 48_750,
+  transactionsToday: 836,
   totalWallets: 3195,
   totalBudgets: 2740,
   aiCallsToday: 1543,
