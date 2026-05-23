@@ -68,6 +68,21 @@ export default function LoginPage() {
             {submitting ? 'Đang xử lý...' : 'Đăng nhập'}
           </button>
 
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={() =>
+                toast(
+                  'Vui lòng liên hệ quản trị viên hệ thống để được hỗ trợ đặt lại mật khẩu.',
+                  { duration: 5000 }
+                )
+              }
+              className="text-sm text-brand-600 hover:text-brand-700 hover:underline"
+            >
+              Quên mật khẩu?
+            </button>
+          </div>
+
           <p className="text-xs text-slate-400 text-center pt-2">
             Tài khoản demo: admin@finviet.local / admin123
           </p>
