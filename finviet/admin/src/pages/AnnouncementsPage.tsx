@@ -28,7 +28,9 @@ export default function AnnouncementsPage() {
       return;
     }
     if (!window.confirm(`Gửi thông báo "${title}" đến nhóm "${audience}"?`)) return;
-    sendMut.mutate({ title, body, audience });
+    const segment =
+      audience === 'ALL' ? 'AllUsers' : audience === 'ACTIVE' ? 'ActiveUsers' : 'InactiveUsers';
+    sendMut.mutate({ title, message: body, targetSegment: segment });
   };
 
   return (
