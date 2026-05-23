@@ -12,11 +12,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_PROXY || 'http://localhost:8090',
-        changeOrigin: true,
-      },
-    },
+    // Proxy removed – frontend runs fully with mock data (no backend needed).
+    // To re-enable: add proxy: { '/api': { target: 'http://localhost:8090', changeOrigin: true } }
   },
 });
+

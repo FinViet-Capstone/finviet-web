@@ -1,3 +1,8 @@
+// ⚠️  Frontend-only mode – no backend required.
+// All HTTP calls are intercepted by the mock handler below.
+// To re-enable the real backend, remove this import.
+import './mocks/handler';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
