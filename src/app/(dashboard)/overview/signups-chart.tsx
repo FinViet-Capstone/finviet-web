@@ -1,6 +1,7 @@
 "use client";
 
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { edgeAwareTick } from "./edge-aware-tick";
 
 const data = [
   { week: "9 tuần trước", value: 410 },
@@ -29,7 +30,7 @@ export function SignupsChart() {
           dataKey="week"
           tickLine={false}
           axisLine={false}
-          tick={{ fontSize: 12, fill: "#64748b" }}
+          tick={edgeAwareTick(data.length)}
           interval={0}
         />
         <Tooltip

@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { edgeAwareTick } from "./edge-aware-tick";
 
 const data = [
   { week: "16 tuần trước", value: 90 },
@@ -30,7 +31,7 @@ export function TransactionsChart() {
           dataKey="week"
           tickLine={false}
           axisLine={false}
-          tick={{ fontSize: 12, fill: "#64748b" }}
+          tick={edgeAwareTick(data.length)}
           interval={0}
         />
         <Tooltip

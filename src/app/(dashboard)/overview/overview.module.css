@@ -37,6 +37,10 @@
   border-radius: var(--radius-md);
 }
 
+.chartCard :global(.recharts-wrapper) {
+  user-select: none;
+}
+
 .chartTitle {
   font-size: 16px;
   font-weight: 700;
