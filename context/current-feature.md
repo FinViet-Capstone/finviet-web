@@ -1,40 +1,52 @@
 # Current Feature
 
-**Announcements screen** — Feature G (Announcements) UI, built from
-`context/designs/pencil-mock-design-announcements.md` (no matching `.pen` mockup screens exist
-yet for this feature — brief + screenshots are the visual source of truth here).
+**Admin dashboard review fixes** — a batch of interaction bugs and UX gaps found while walking
+through the already-built screens (Overview, Users, System Configuration, Category Corrections,
+Knowledge Base, Announcements, topbar/sidebar). Not a new screen — fixes and small additions
+across existing ones, tracked in the approved plan
+(`C:\Users\Lenovo\.claude\plans\sparkling-spinning-russell.md`) rather than a design brief, since
+this pass started from live bug reports instead of a Pencil mockup.
 
 ## Status
 
-Completed
+In progress — implementation done, build + browser verification next.
 
 ## Goals
 
-- Single page at `/announcements` (sidebar `Thông báo` key already wired) — compose panel above
-  a read-only history table, not tabs.
-- **Compose panel**: Tiêu đề input, Nội dung textarea with a char counter (amber near the
-  500-char limit, red if exceeded), Đối tượng target selector — only `Tất cả người dùng` is a
-  real selectable option, `Phân khúc (sắp ra mắt)` renders disabled since segment targeting is
-  TBD per project-spec.md's Feature G gap note. Right-aligned `Xem trước` (secondary) / `Gửi`
-  (primary) buttons.
-- **Preview modal** (`Xem trước`): read-only, reuses `FormModal`, renders the announcement inside
-  a phone-frame mockup styled like the mobile notification center (icon, title, body, "Vừa
-  xong"). Single `Đóng` button, no send action inside.
-- **Send confirmation modal** (`Gửi`): reuses `ConfirmationModal` (destructive variant, matching
-  how it's used elsewhere for high-impact actions) — "Gửi thông báo?" / "Gửi thông báo này đến
-  [N] người dùng? Hành động này không thể hoàn tác." `Gửi` confirms, adds a new row to the top of
-  the history table, resets the compose form, and shows a success toast.
-- **History table**: Tiêu đề, Đối tượng, Số người nhận, Thời gian gửi. No row actions —
-  announcements aren't editable once sent.
-- Visual-only per `context/ai-design-interactions.md` — no real fetch against `finviet-be`. Mock
-  announcement array + a fixed mock target-audience count drive the live recipient count shown
-  in the confirm modal and the new history row.
+- Sidebar nav items were plain `<div>`s with no `href`/`onClick` → real `next/link`s.
+- Overview trend charts: leftmost X-axis label was clipped (centered off-canvas) → edge-aware
+  tick anchoring + `user-select: none` on the chart wrapper.
+- Topbar: removed the non-functional search icon; moved the admin avatar out of the topbar into a
+  new pinned bottom section of the sidebar, with a dropdown (Tài khoản của tôi / Đăng xuất — mock
+  redirect to `/login`). Added a visual-only "Tài khoản của tôi" account panel.
+- Announcements: removed the disabled "Phân khúc (sắp ra mắt)" target option (segment targeting
+  is spec'd as TBD, not worth showing a dead control for).
+- Users: pagination didn't slice the table at all (buttons just moved the highlight) → expanded
+  mock data to 40 rows and made pagination real (10/page, dynamic page count, resets on filter
+  change).
+- System Configuration → Buckets: removed the Needs/Wants edit lock per product direction (admin
+  should be able to edit all buckets); added sortOrder-uniqueness validation on save (previously
+  two buckets could silently share the same order).
+- System Configuration → Categories: added an SVG upload dropzone for custom category icons
+  (alongside the 5 existing presets); renamed "Bắt buộc" → "Mặc định" to match its real meaning
+  (seeded into every customer's category library vs. hidden by default) — underlying field stays
+  `isMandatory`, matching the real `Category.IsMandatory` backend field.
+- System Configuration → Scoring Weights: mock criteria didn't match the real formula in
+  `finviet-be`'s `SpendingScoreService.cs` at all (wrong names, wrong weights, one fabricated
+  criterion, wrong 0–1 scale). Replaced with the real 3 criteria and weights, added a live formula
+  display and a total-weight validation (must sum to 100%). Also flagged that `ScoringCriterion`
+  isn't actually read by the real scoring service yet — see `context/backend-gaps.md`.
+- System Configuration → Plans: "Xóa" was a hard delete from the mock array despite the confirm
+  copy already promising existing subscribers are unaffected. Changed to a soft-delete
+  ("Ngừng cung cấp") — the plan stays in the list with an "Đã ngừng" badge instead of disappearing.
+- Category Correction Log: added a client-side "Xuất CSV" export button for the filtered rows.
+- Knowledge Base: added a "Xem trước" preview button per ready document (metadata-only, since no
+  real file content exists anywhere in the current mock/upload flow).
+- New `context/backend-gaps.md` documenting every place found where a real endpoint is missing or
+  doesn't satisfy the frontend's needs, for the backend team.
 
-## Notes
-
-- Route: `src/app/(dashboard)/announcements/page.tsx` — sidebar (`Thông báo`) and
-  `sidebar-nav.tsx`'s `activeKeyByPath` already point at `/announcements`, just needed the page
-  built.
+All changes are visual/mock-only per `context/ai-design-interactions.md` — no real `finviet-be`
+calls added. Built on branch `fix/admin-dashboard-review-fixes`.
 
 ## History
 
