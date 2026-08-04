@@ -1,8 +1,8 @@
 # Current Feature
 
-**Login screen** — Feature A (Admin Auth) UI, built from `context/designs/pencil-mock-design-login.md`
-and the matching Pencil mockup screens (credential step, credential error, 2FA/TOTP step, 2FA
-error).
+**Users screen** — Feature C (User Management) UI, built from
+`context/designs/pencil-mock-design-users.md` and the matching Pencil mockup screens (list view,
+lock confirmation, unlock confirmation, password reset confirmation).
 
 ## Status
 
@@ -10,19 +10,19 @@ Completed
 
 ## Goals
 
-- Centered card layout outside the dashboard shell (no sidebar/topbar), matching the brief's
-  4 states: credential step, credential step with inline error, 2FA/TOTP step, 2FA step with
-  inline error.
-- Username/password fields with show/hide toggle; 6-digit segmented TOTP input with auto-advance
-  focus; step transition credential → 2FA; loading state on submit buttons.
-- Visual-only per `context/ai-design-interactions.md` — no real call to `finviet-be`'s
-  admin-login endpoint or better-auth (`src/lib/auth.ts` / `src/app/api/admin/login/route.ts`
-  already exist for that wiring, but this pass doesn't touch them). Client-side only: empty
-  fields trigger the error state so both error screens are reachable for browser verification.
+- Users list view inside the dashboard shell: toolbar (search input + status filter dropdown)
+  above a paginated table (Tên, Email, Trạng thái, Ngày tạo, Tổng GD, Tổng ví, Gói, row actions).
+- Row actions: lock/unlock toggle icon button, `Đặt lại mật khẩu` icon button — reusing the
+  existing `ConfirmationModal` shared component for all 3 confirmation states (lock =
+  destructive/red, unlock = primary/neutral, password reset = primary).
+- Visual-only per `context/ai-design-interactions.md` — no real fetch/mutation against
+  `finviet-be`. Mock row data with client-side lock/unlock toggle state so both modal variants
+  are reachable for browser verification; search/filter are visual only (no functional
+  filtering wired).
 
 ## Notes
 
-- Route: `src/app/login/page.tsx` (outside the `(dashboard)` route group).
+- Route: `src/app/(dashboard)/users/page.tsx` (inside the dashboard shell, unlike Login).
 
 ## History
 
@@ -51,3 +51,12 @@ Completed
   `context/ai-design-interactions.md`: no calls to `finviet-be`'s admin-login endpoint or
   better-auth; client-side validation (empty fields / incomplete code) drives the error states
   for demo purposes. Built on branch `feature/login-screen`.
+- 2026-08-04 — **Users screen**: built `src/app/(dashboard)/users/page.tsx` matching the Pencil
+  mockup and `context/designs/pencil-mock-design-users.md` — toolbar (search + status filter)
+  above a paginated customer table with status/plan badges and row actions (lock/unlock,
+  password reset), plus the 3 `ConfirmationModal` variants (lock = destructive, unlock/reset =
+  primary) reusing the existing shared component. Visual-only per
+  `context/ai-design-interactions.md`: mock customer array in `mock-users.ts` with client-side
+  search/status filtering and lock-state toggling (no `finviet-be` calls) so all modal states and
+  the success toast are reachable for browser verification. Built on branch
+  `feature/users-screen`.
