@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bell, Eye, Filter, Send, Users } from "lucide-react";
+import { Bell, Eye, Send, Users } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
 import { initialAnnouncements, TARGET_AUDIENCE_COUNT, type MockAnnouncement } from "./mock-announcements";
@@ -105,14 +105,10 @@ export default function AnnouncementsPage() {
         <div className={styles.formRow}>
           <span className={styles.formLabel}>Đối tượng</span>
           <div className={styles.targetGroup}>
-            <button type="button" className={`${styles.targetOption} ${styles.targetOptionActive}`}>
+            <span className={`${styles.targetOption} ${styles.targetOptionActive}`}>
               <Users size={16} strokeWidth={2} />
               Tất cả người dùng
-            </button>
-            <button type="button" className={styles.targetOption} disabled>
-              <Filter size={16} strokeWidth={2} />
-              Phân khúc (sắp ra mắt)
-            </button>
+            </span>
           </div>
         </div>
 

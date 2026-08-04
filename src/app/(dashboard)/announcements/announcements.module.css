@@ -103,12 +103,6 @@
   color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
-}
-
-.targetOption:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .targetOptionActive {
