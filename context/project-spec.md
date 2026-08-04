@@ -241,7 +241,10 @@ A fresh choice for this codebase, not inherited from any existing scaffold:
 
 **Open/TBD — deliberately not decided here to avoid guessing:**
 - Styling solution (Tailwind, CSS Modules, a component library, etc.)
-- Charting library for the trend views in Feature B
+
+**Decided during implementation:**
+- Charting library for the trend views in Feature B: **recharts**, chosen when
+  building the Overview screen's trend charts.
 
 ## Monetization
 ---
