@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowRight, Calendar, Filter, Mail, Clock } from "lucide-react";
+import { ArrowRight, Calendar, Download, Filter, Mail, Clock } from "lucide-react";
 import { FormModal } from "@/components/form-modal/form-modal";
 import { correctedCategoryOptions, initialCorrections, type MockCorrection } from "./mock-corrections";
 import styles from "./category-corrections.module.css";
@@ -32,6 +32,28 @@ export default function CategoryCorrectionsPage() {
     return initialCorrections.filter((correction) => correction.correctedCategoryName === categoryFilter);
   }, [categoryFilter]);
 
+  function handleExportCsv() {
+    const headers = ["Mô tả giao dịch", "AI đề xuất", "Đã sửa", "Khách hàng", "Thời gian"];
+    const rows = filteredCorrections.map((correction) => [
+      correction.transactionDescription,
+      correction.aiGuess,
+      correction.correctedCategoryName,
+      correction.customerEmail,
+      correction.correctedAtFull,
+    ]);
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+      .join("\r\n");
+
+    const blob = new Blob([`﻿${csvContent}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sua-danh-muc-ai.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -42,37 +64,43 @@ export default function CategoryCorrectionsPage() {
       </div>
 
       <div className={styles.toolbar}>
-        <div className={styles.filterBox}>
-          <Calendar size={16} strokeWidth={2} className={styles.filterIcon} />
-          <select
-            className={styles.filterSelect}
-            value={dateRange}
-            onChange={(event) => setDateRange(event.target.value as DateRangeFilter)}
-            aria-label="Lọc theo khoảng thời gian"
-          >
-            {dateRangeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+        <div className={styles.filterGroup}>
+          <div className={styles.filterBox}>
+            <Calendar size={16} strokeWidth={2} className={styles.filterIcon} />
+            <select
+              className={styles.filterSelect}
+              value={dateRange}
+              onChange={(event) => setDateRange(event.target.value as DateRangeFilter)}
+              aria-label="Lọc theo khoảng thời gian"
+            >
+              {dateRangeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.filterBox}>
+            <Filter size={16} strokeWidth={2} className={styles.filterIcon} />
+            <select
+              className={styles.filterSelect}
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              aria-label="Lọc theo danh mục"
+            >
+              <option value="all">Danh mục: Tất cả</option>
+              {correctedCategoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  Danh mục: {category}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className={styles.filterBox}>
-          <Filter size={16} strokeWidth={2} className={styles.filterIcon} />
-          <select
-            className={styles.filterSelect}
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-            aria-label="Lọc theo danh mục"
-          >
-            <option value="all">Danh mục: Tất cả</option>
-            {correctedCategoryOptions.map((category) => (
-              <option key={category} value={category}>
-                Danh mục: {category}
-              </option>
-            ))}
-          </select>
-        </div>
+        <button type="button" className={styles.exportButton} onClick={handleExportCsv}>
+          <Download size={16} strokeWidth={2} />
+          Xuất CSV
+        </button>
       </div>
 
       <div className={styles.tableCard}>
