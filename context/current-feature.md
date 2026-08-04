@@ -1,9 +1,8 @@
 # Current Feature
 
-**System Configuration screen** — Feature D (System Configuration) UI, built from
-`context/designs/pencil-mock-design-system-config.md` and the matching Pencil mockup screens
-(Danh mục tab + Add/Edit + Delete modals, Nhóm ngân sách tab + Edit modal, Trọng số điểm tab +
-Save confirmation modal, Gói dịch vụ tab + Add/Edit + Delete modals).
+**Category Correction Log screen** — Feature E (Category Correction Log) UI, built from
+`context/designs/pencil-mock-design-category-corrections.md` and the matching Pencil mockup
+screens (list view + row-click detail modal).
 
 ## Status
 
@@ -11,32 +10,28 @@ Completed
 
 ## Goals
 
-- One page shell (header + `TabBar`) with 4 tabs, matching the tab-shell pattern already used
-  elsewhere: Danh mục / Nhóm ngân sách / Trọng số điểm / Gói dịch vụ.
-- **Danh mục (Categories)**: table (Icon, Tên danh mục, Tên VI/EN, Loại badge, Bucket mặc định
-  badge, Bắt buộc, Thứ tự) + Add/Edit form modal (name, name VI/EN, type select, mandatory
-  toggle, default bucket select, icon picker, color swatch, sort order) + destructive delete
-  confirmation reusing `ConfirmationModal`.
-- **Nhóm ngân sách (Buckets)**: 3-row list (Needs/Wants/Savings) — locked rows show a lock icon
-  + tooltip instead of an edit action; unlocked rows get an edit form modal (name VI/EN, color,
-  icon, sort order).
-- **Trọng số điểm (Scoring Weights)**: table with inline-editable weekly/monthly weight inputs,
-  a "modified" dot next to changed cells, a `Lưu thay đổi` button that appears once dirty, and a
-  warning-styled (`ConfirmationModal` `variant="warning"`) save confirmation — the highest-stakes
-  action on the screen since it recalculates every customer's AI Spending Score.
-- **Gói dịch vụ (Subscription Plans)**: card grid (not table) + Add/Edit form modal with a
-  feature-bullet-list editor (add/remove rows) + destructive delete confirmation.
-- Visual-only per `context/ai-design-interactions.md` — no real fetch/mutation against
-  `finviet-be`. Mock data per tab with client-side CRUD/state so every modal variant (add, edit,
-  delete, locked-vs-unlocked bucket, dirty-weights save) is reachable for browser verification.
-- New shared component: `FormModal` (`src/components/form-modal/`) — generic modal shell (title
-  + close X + body + footer slots) for the Add/Edit forms, since `ConfirmationModal` only covers
-  simple confirm/cancel dialogs, not forms. Reused across Categories/Buckets/Plans.
+- Page shell (header + filter bar, no tabs) at a route matching the sidebar's existing
+  `category-corrections` key (`Sửa danh mục AI`).
+- **Filter bar**: date range dropdown + corrected-category dropdown — no search-by-customer,
+  this is a pattern-reading tool not a lookup tool.
+- **Table**: Mô tả giao dịch, AI đề xuất (muted text, no badge — "less final" than the
+  correction), → connector, Đã sửa (badge in the corrected category's own catalog color),
+  Khách hàng (email), Thời gian. No row actions — clicking a row opens the detail modal.
+- **Detail modal**: read-only — transaction description + amount, a larger AI-guess → corrected
+  side-by-side comparison, customer email, corrected date/time. Single `Đóng` button, no
+  edit/save affordance anywhere — reinforces this whole screen is observation-only. Reuses the
+  `FormModal` shell from System Configuration.
+- Read-only through and through: no primary-colored action buttons in table rows, no
+  add/edit/delete affordances anywhere on the page, no toast (nothing is ever saved here).
+- Visual-only per `context/ai-design-interactions.md` — no real fetch against `finviet-be`. Mock
+  correction-log array with client-side category filtering so the table and modal are reachable
+  for browser verification.
 
 ## Notes
 
-- Route: `src/app/(dashboard)/system-config/page.tsx` — already wired into the sidebar
-  (`Cấu hình hệ thống`) and `sidebar-nav.tsx`'s `activeKeyByPath`, just needed the page built.
+- Route: `src/app/(dashboard)/category-corrections/page.tsx` — sidebar (`Sửa danh mục AI`) and
+  `sidebar-nav.tsx`'s `activeKeyByPath` already point at `/category-corrections`, just needed
+  the page built.
 
 ## History
 
@@ -89,3 +84,14 @@ Completed
   `mock-buckets.ts`, `mock-scoring.ts`, `mock-plans.ts`) with client-side CRUD/state so every
   modal variant is reachable for browser verification; no `finviet-be` calls. Built on branch
   `feature/system-config-screen`.
+- 2026-08-04 — **Category Correction Log screen**: built
+  `src/app/(dashboard)/category-corrections/page.tsx` matching the Pencil mockup and
+  `context/designs/pencil-mock-design-category-corrections.md` — a filter bar (date range +
+  corrected-category dropdown) above a read-only, paginated table (Mô tả giao dịch, AI đề xuất
+  muted text, → connector, Đã sửa badge in the category's own catalog color, Khách hàng, Thời
+  gian) where clicking a row opens a detail modal (larger AI-guess → corrected comparison,
+  amount, customer email, corrected date/time, single `Đóng` button, no edit/save affordance
+  anywhere). Reused the `FormModal` shell from System Configuration for the modal. Visual-only
+  per `context/ai-design-interactions.md`: mock correction array in `mock-corrections.ts` with
+  client-side category filtering (no `finviet-be` calls); no toast, since nothing is ever saved
+  on this screen. Built on branch `feature/category-corrections-screen`.
