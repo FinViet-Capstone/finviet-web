@@ -9,7 +9,7 @@ export interface MockCustomer {
   plan: "free" | "premium";
 }
 
-export const initialCustomers: MockCustomer[] = [
+const namedCustomers: MockCustomer[] = [
   {
     id: "1",
     name: "Nguyễn Văn A",
@@ -71,3 +71,34 @@ export const initialCustomers: MockCustomer[] = [
     plan: "premium",
   },
 ];
+
+const surnames = ["Đặng", "Bùi", "Đỗ", "Ngô", "Dương", "Lý", "Trịnh", "Đinh", "Phan", "Mai"];
+const givenNames = ["Văn", "Thị", "Minh", "Quang", "Thu", "Anh", "Hữu", "Ngọc", "Đức", "Thanh"];
+const letters = "GHIKLMNOPQRSTUVXYZ";
+
+function generateMoreCustomers(count: number): MockCustomer[] {
+  const generated: MockCustomer[] = [];
+  for (let i = 0; i < count; i++) {
+    const index = namedCustomers.length + i;
+    const surname = surnames[i % surnames.length];
+    const given = givenNames[Math.floor(i / surnames.length) % givenNames.length];
+    const letter = letters[i % letters.length];
+    const day = String(((i * 3) % 28) + 1).padStart(2, "0");
+    const month = String((i % 12) + 1).padStart(2, "0");
+    const year = 2024 + (i % 2);
+
+    generated.push({
+      id: String(index + 1),
+      name: `${surname} ${given} ${letter}`,
+      email: `user${index + 1}@mail.com`,
+      isActive: i % 3 !== 0,
+      createdAt: `${day}/${month}/${year}`,
+      totalTransactions: 5 + ((i * 7) % 90),
+      totalWallets: 1 + (i % 4),
+      plan: i % 4 === 0 ? "premium" : "free",
+    });
+  }
+  return generated;
+}
+
+export const initialCustomers: MockCustomer[] = [...namedCustomers, ...generateMoreCustomers(34)];

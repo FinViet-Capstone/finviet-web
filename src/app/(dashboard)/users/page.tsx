@@ -44,8 +44,24 @@ const modalCopyByAction: Record<
   },
 };
 
-const pageNumbers = [1, 2, 3];
-const lastPage = 24;
+const PAGE_SIZE = 10;
+
+function getPageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages = new Set<number>([1, 2, total - 1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
+
+  const result: (number | "…")[] = [];
+  sorted.forEach((page, index) => {
+    if (index > 0 && page - sorted[index - 1] > 1) {
+      result.push("…");
+    }
+    result.push(page);
+  });
+  return result;
+}
 
 export default function UsersPage() {
   const [customers, setCustomers] = useState(initialCustomers);
@@ -69,6 +85,22 @@ export default function UsersPage() {
       return matchesQuery && matchesStatus;
     });
   }, [customers, search, statusFilter]);
+
+  // Reset to page 1 whenever the filters change (adjusting state during render
+  // instead of an effect, per https://react.dev/learn/you-might-not-need-an-effect).
+  const [prevFilters, setPrevFilters] = useState({ search, statusFilter });
+  if (prevFilters.search !== search || prevFilters.statusFilter !== statusFilter) {
+    setPrevFilters({ search, statusFilter });
+    setActivePage(1);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / PAGE_SIZE));
+  const clampedPage = Math.min(activePage, totalPages);
+  const pagedCustomers = filteredCustomers.slice(
+    (clampedPage - 1) * PAGE_SIZE,
+    clampedPage * PAGE_SIZE
+  );
+  const pageNumbers = getPageNumbers(clampedPage, totalPages);
 
   function showToast(message: string) {
     setToast(message);
@@ -144,7 +176,7 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredCustomers.map((customer) => (
+            {pagedCustomers.map((customer) => (
               <tr key={customer.id} className={styles.row}>
                 <td className={styles.nameCell}>{customer.name}</td>
                 <td className={styles.mutedCell}>{customer.email}</td>
@@ -209,35 +241,33 @@ export default function UsersPage() {
           <button
             type="button"
             className={styles.pageNav}
-            disabled={activePage === 1}
+            disabled={clampedPage === 1}
             onClick={() => setActivePage((page) => Math.max(1, page - 1))}
             aria-label="Trang trước"
           >
             ‹
           </button>
-          {pageNumbers.map((page) => (
-            <button
-              key={page}
-              type="button"
-              className={page === activePage ? styles.pageNumberActive : styles.pageNumber}
-              onClick={() => setActivePage(page)}
-            >
-              {page}
-            </button>
-          ))}
-          <span className={styles.pageEllipsis}>…</span>
-          <button
-            type="button"
-            className={activePage === lastPage ? styles.pageNumberActive : styles.pageNumber}
-            onClick={() => setActivePage(lastPage)}
-          >
-            {lastPage}
-          </button>
+          {pageNumbers.map((page, index) =>
+            page === "…" ? (
+              <span key={`ellipsis-${index}`} className={styles.pageEllipsis}>
+                …
+              </span>
+            ) : (
+              <button
+                key={page}
+                type="button"
+                className={page === clampedPage ? styles.pageNumberActive : styles.pageNumber}
+                onClick={() => setActivePage(page)}
+              >
+                {page}
+              </button>
+            )
+          )}
           <button
             type="button"
             className={styles.pageNav}
-            disabled={activePage === lastPage}
-            onClick={() => setActivePage((page) => Math.min(lastPage, page + 1))}
+            disabled={clampedPage === totalPages}
+            onClick={() => setActivePage((page) => Math.min(totalPages, page + 1))}
             aria-label="Trang sau"
           >
             ›
