@@ -9,7 +9,8 @@ this pass started from live bug reports instead of a Pencil mockup.
 
 ## Status
 
-In progress — implementation done, build + browser verification next.
+Committed on branch `fix/admin-dashboard-review-fixes` (9 focused commits) — build and browser
+verification both passed. Not yet merged.
 
 ## Goals
 
@@ -47,6 +48,15 @@ In progress — implementation done, build + browser verification next.
 
 All changes are visual/mock-only per `context/ai-design-interactions.md` — no real `finviet-be`
 calls added. Built on branch `fix/admin-dashboard-review-fixes`.
+
+## Follow-up (queued, not started)
+
+Found while verifying this pass but out of scope for it — approved for a future pass:
+
+- Category Correction Log: the date-range filter ("7/30/90 ngày qua") doesn't filter anything,
+  even client-side — only the category filter actually works.
+- Category Correction Log: pagination has the same bug the Users screen had before this pass —
+  buttons move the highlight but the table always shows the same rows regardless of page.
 
 ## History
 
