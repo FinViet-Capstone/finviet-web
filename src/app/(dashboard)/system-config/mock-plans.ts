@@ -7,6 +7,7 @@ export interface MockPlan {
   savingsBadge?: string;
   highlighted?: boolean;
   features: string[];
+  isActive: boolean;
 }
 
 export const initialPlans: MockPlan[] = [
@@ -17,6 +18,7 @@ export const initialPlans: MockPlan[] = [
     priceValue: "0đ",
     priceUnit: "",
     features: ["Theo dõi giao dịch cơ bản", "1 ví", "Báo cáo hàng tháng"],
+    isActive: true,
   },
   {
     id: "2",
@@ -25,6 +27,7 @@ export const initialPlans: MockPlan[] = [
     priceValue: "49.000đ",
     priceUnit: "/tháng",
     features: ["Không giới hạn ví", "Điểm chi tiêu AI", "Trợ lý AI chatbot", "Báo cáo nâng cao"],
+    isActive: true,
   },
   {
     id: "3",
@@ -35,5 +38,6 @@ export const initialPlans: MockPlan[] = [
     savingsBadge: "Tiết kiệm 17%",
     highlighted: true,
     features: ["Không giới hạn ví", "Điểm chi tiêu AI", "Trợ lý AI chatbot", "Báo cáo nâng cao"],
+    isActive: true,
   },
 ];

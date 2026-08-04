@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Ban, Check, Pencil, Plus, X } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
 import { initialPlans, type MockPlan } from "./mock-plans";
@@ -85,6 +85,7 @@ export function PlansTab() {
         priceValue,
         priceUnit,
         features,
+        isActive: true,
       };
       setPlans((prev) => [...prev, newPlan]);
       showToast("Đã thêm gói dịch vụ");
@@ -92,10 +93,12 @@ export function PlansTab() {
     setIsFormOpen(false);
   }
 
-  function handleDelete() {
+  function handleDiscontinue() {
     if (!deleteTarget) return;
-    setPlans((prev) => prev.filter((item) => item.id !== deleteTarget.id));
-    showToast(`Đã xóa gói ${deleteTarget.name}`);
+    setPlans((prev) =>
+      prev.map((item) => (item.id === deleteTarget.id ? { ...item, isActive: false } : item))
+    );
+    showToast(`Đã ngừng cung cấp gói ${deleteTarget.name}`);
     setDeleteTarget(null);
   }
 
@@ -110,11 +113,21 @@ export function PlansTab() {
 
       <div className={styles.planGrid}>
         {plans.map((plan) => (
-          <div key={plan.id} className={plan.highlighted ? `${styles.planCard} ${styles.planCardHighlighted}` : styles.planCard}>
+          <div
+            key={plan.id}
+            className={
+              plan.highlighted && plan.isActive
+                ? `${styles.planCard} ${styles.planCardHighlighted}`
+                : plan.isActive
+                  ? styles.planCard
+                  : `${styles.planCard} ${styles.planCardDiscontinued}`
+            }
+          >
             <div className={styles.planCardHeader}>
               <div className={styles.planNameRow}>
                 <span className={styles.planName}>{plan.name}</span>
                 {plan.savingsBadge ? <span className={styles.planSavingsBadge}>{plan.savingsBadge}</span> : null}
+                {!plan.isActive ? <span className={styles.planDiscontinuedBadge}>Đã ngừng</span> : null}
               </div>
               <div className={styles.planCardActions}>
                 <button
@@ -125,14 +138,16 @@ export function PlansTab() {
                 >
                   <Pencil size={16} strokeWidth={2} />
                 </button>
-                <button
-                  type="button"
-                  className={styles.actionButtonDanger}
-                  aria-label={`Xóa gói ${plan.name}`}
-                  onClick={() => setDeleteTarget(plan)}
-                >
-                  <Trash2 size={16} strokeWidth={2} />
-                </button>
+                {plan.isActive ? (
+                  <button
+                    type="button"
+                    className={styles.actionButtonDanger}
+                    aria-label={`Ngừng cung cấp gói ${plan.name}`}
+                    onClick={() => setDeleteTarget(plan)}
+                  >
+                    <Ban size={16} strokeWidth={2} />
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -226,12 +241,12 @@ export function PlansTab() {
 
       <ConfirmationModal
         isOpen={deleteTarget !== null}
-        title="Xóa gói?"
-        description={`Xóa gói ${deleteTarget?.name}? Người dùng đang đăng ký gói này sẽ không bị ảnh hưởng, nhưng gói sẽ không còn hiển thị cho người dùng mới.`}
-        confirmLabel="Xóa"
+        title="Ngừng cung cấp gói?"
+        description={`Ngừng cung cấp gói ${deleteTarget?.name}? Người dùng đang đăng ký gói này sẽ không bị ảnh hưởng, nhưng gói sẽ không còn hiển thị cho người dùng mới.`}
+        confirmLabel="Ngừng cung cấp"
         variant="destructive"
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onConfirm={handleDiscontinue}
       />
 
       {toast ? <div className={styles.toast}>{toast}</div> : null}

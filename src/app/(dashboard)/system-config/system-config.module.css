@@ -203,15 +203,6 @@
   background: color-mix(in srgb, var(--color-destructive) 10%, transparent);
 }
 
-.lockedIndicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  color: var(--color-text-secondary);
-}
-
 /* Form fields (Add/Edit modals) */
 
 .field {
@@ -246,6 +237,11 @@
 .select:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+.fieldError {
+  font-size: 12px;
+  color: var(--color-destructive);
 }
 
 .toggleRow {
@@ -289,6 +285,80 @@
   display: flex;
   align-items: flex-end;
   gap: 24px;
+}
+
+.helperText {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: -8px;
+}
+
+.iconDropzone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.iconDropzonePreview {
+  width: 24px;
+  height: 24px;
+}
+
+.dropzoneLabel {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.clearIconButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--color-destructive);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.iconChipRow {
+  display: flex;
+  gap: 8px;
+}
+
+.iconChip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.iconChip:hover {
+  background: var(--color-background);
+}
+
+.iconChipSelected {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .colorSwatch {
@@ -391,16 +461,62 @@
   color: var(--color-text-secondary);
 }
 
-.lockedNote {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
 /* Scoring tab */
 
 .hint {
   font-size: 14px;
   color: var(--color-text-secondary);
+}
+
+.scoringNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.scoringNotice code {
+  font-size: 12px;
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.scoringTotals {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.totalOk {
+  color: var(--color-active);
+}
+
+.totalError {
+  color: var(--color-destructive);
+}
+
+.formulaBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.formulaLine {
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-text-primary);
 }
 
 .weightCell {
@@ -453,6 +569,20 @@
 .planCardHighlighted {
   border-color: var(--color-primary);
   border-width: 2px;
+}
+
+.planCardDiscontinued {
+  opacity: 0.6;
+}
+
+.planDiscontinuedBadge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-secondary) 15%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .planCardHeader {

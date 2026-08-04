@@ -18,7 +18,6 @@ export interface MockBucket {
   color: string;
   icon: string;
   sortOrder: number;
-  isLocked: boolean;
 }
 
 export const initialBuckets: MockBucket[] = [
@@ -29,7 +28,6 @@ export const initialBuckets: MockBucket[] = [
     color: "#2563eb",
     icon: "home",
     sortOrder: 1,
-    isLocked: true,
   },
   {
     id: "wants",
@@ -38,7 +36,6 @@ export const initialBuckets: MockBucket[] = [
     color: "#8b5cf6",
     icon: "sparkles",
     sortOrder: 2,
-    isLocked: true,
   },
   {
     id: "savings",
@@ -47,7 +44,6 @@ export const initialBuckets: MockBucket[] = [
     color: "#10b981",
     icon: "piggy-bank",
     sortOrder: 3,
-    isLocked: false,
   },
 ];
 

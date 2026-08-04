@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
 import {
@@ -24,14 +24,27 @@ interface CategoryFormState {
   defaultBucket: DefaultBucket;
   isMandatory: boolean;
   icon: string;
+  customIconDataUrl: string | null;
   color: string;
   sortOrder: number;
 }
 
 function toFormState(category: MockCategory | null): CategoryFormState {
   if (category) {
-    const { name, nameVi, nameEn, type, defaultBucket, isMandatory, icon, color, sortOrder } = category;
-    return { name, nameVi, nameEn, type, defaultBucket, isMandatory, icon, color, sortOrder };
+    const { name, nameVi, nameEn, type, defaultBucket, isMandatory, icon, customIconDataUrl, color, sortOrder } =
+      category;
+    return {
+      name,
+      nameVi,
+      nameEn,
+      type,
+      defaultBucket,
+      isMandatory,
+      icon,
+      customIconDataUrl: customIconDataUrl ?? null,
+      color,
+      sortOrder,
+    };
   }
   return {
     name: "",
@@ -41,6 +54,7 @@ function toFormState(category: MockCategory | null): CategoryFormState {
     defaultBucket: "wants",
     isMandatory: false,
     icon: categoryIconOptions[0].value,
+    customIconDataUrl: null,
     color: categoryColorOptions[0],
     sortOrder: 1,
   };
@@ -69,6 +83,14 @@ export function CategoriesTab() {
     setEditingCategory(category);
     setForm(toFormState(category));
     setIsFormOpen(true);
+  }
+
+  function readIconFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((prev) => ({ ...prev, customIconDataUrl: String(reader.result) }));
+    };
+    reader.readAsDataURL(file);
   }
 
   function handleSave() {
@@ -110,7 +132,7 @@ export function CategoriesTab() {
               <th>Tên (VI/EN)</th>
               <th>Loại</th>
               <th>Bucket mặc định</th>
-              <th>Bắt buộc</th>
+              <th>Mặc định</th>
               <th>Thứ tự</th>
               <th aria-hidden />
             </tr>
@@ -122,7 +144,12 @@ export function CategoriesTab() {
                 <tr key={category.id} className={styles.row}>
                   <td>
                     <span className={styles.iconCell} style={{ color: category.color }}>
-                      <Icon size={16} strokeWidth={2} />
+                      {category.customIconDataUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={category.customIconDataUrl} alt="" width={16} height={16} />
+                      ) : (
+                        <Icon size={16} strokeWidth={2} />
+                      )}
                     </span>
                   </td>
                   <td className={styles.nameCell}>{category.name}</td>
@@ -251,7 +278,7 @@ export function CategoriesTab() {
             </label>
           </div>
           <div className={styles.toggleRow}>
-            <span className={styles.label}>Bắt buộc</span>
+            <span className={styles.label}>Mặc định</span>
             <button
               type="button"
               className={form.isMandatory ? `${styles.toggle} ${styles.toggleOn}` : styles.toggle}
@@ -262,35 +289,84 @@ export function CategoriesTab() {
               <span className={form.isMandatory ? `${styles.toggleKnob} ${styles.toggleOnKnob}` : styles.toggleKnob} />
             </button>
           </div>
-          <div className={styles.iconColorRow}>
-            <label className={styles.field}>
-              <span className={styles.label}>Icon</span>
-              <select
-                className={styles.select}
-                value={form.icon}
-                onChange={(event) => setForm((prev) => ({ ...prev, icon: event.target.value }))}
-              >
-                {categoryIconOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+          <p className={styles.helperText}>
+            Danh mục mặc định sẽ được seed vào thư viện danh mục của khách hàng và hiển thị; các danh mục còn lại sẽ
+            ẩn.
+          </p>
+
+          <div className={styles.field}>
+            <span className={styles.label}>Icon</span>
+            <label
+              className={styles.iconDropzone}
+              onDrop={(event) => {
+                event.preventDefault();
+                const droppedFile = event.dataTransfer.files[0];
+                if (droppedFile) readIconFile(droppedFile);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+            >
+              {form.customIconDataUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.customIconDataUrl} alt="" className={styles.iconDropzonePreview} />
+              ) : (
+                <Upload size={18} strokeWidth={2} />
+              )}
+              <span className={styles.dropzoneLabel}>Kéo thả hoặc chọn file .svg</span>
+              <input
+                type="file"
+                accept="image/svg+xml"
+                className={styles.hiddenFileInput}
+                onChange={(event) => {
+                  const selectedFile = event.target.files?.[0];
+                  if (selectedFile) readIconFile(selectedFile);
+                }}
+              />
             </label>
-            <div className={styles.field}>
-              <span className={styles.label}>Màu</span>
-              <div className={styles.colorSwatchRow}>
-                {categoryColorOptions.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-label={`Chọn màu ${color}`}
-                    className={color === form.color ? `${styles.colorSwatch} ${styles.colorSwatchSelected}` : styles.colorSwatch}
-                    style={{ background: color }}
-                    onClick={() => setForm((prev) => ({ ...prev, color }))}
-                  />
-                ))}
+            {form.customIconDataUrl ? (
+              <button
+                type="button"
+                className={styles.clearIconButton}
+                onClick={() => setForm((prev) => ({ ...prev, customIconDataUrl: null }))}
+              >
+                <X size={14} strokeWidth={2} />
+                Xóa icon đã tải lên
+              </button>
+            ) : (
+              <div className={styles.iconChipRow}>
+                {categoryIconOptions.map((option) => {
+                  const ChipIcon = option.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-label={option.label}
+                      title={option.label}
+                      className={
+                        option.value === form.icon ? `${styles.iconChip} ${styles.iconChipSelected}` : styles.iconChip
+                      }
+                      onClick={() => setForm((prev) => ({ ...prev, icon: option.value }))}
+                    >
+                      <ChipIcon size={16} strokeWidth={2} />
+                    </button>
+                  );
+                })}
               </div>
+            )}
+          </div>
+
+          <div className={styles.field}>
+            <span className={styles.label}>Màu</span>
+            <div className={styles.colorSwatchRow}>
+              {categoryColorOptions.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={`Chọn màu ${color}`}
+                  className={color === form.color ? `${styles.colorSwatch} ${styles.colorSwatchSelected}` : styles.colorSwatch}
+                  style={{ background: color }}
+                  onClick={() => setForm((prev) => ({ ...prev, color }))}
+                />
+              ))}
             </div>
           </div>
           <label className={styles.field}>

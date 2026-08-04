@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { FormModal } from "@/components/form-modal/form-modal";
 import { bucketIconOptions, iconForBucket, initialBuckets, type MockBucket } from "./mock-buckets";
 import styles from "./system-config.module.css";
@@ -23,6 +23,7 @@ export function BucketsTab() {
   const [buckets, setBuckets] = useState(initialBuckets);
   const [editingBucket, setEditingBucket] = useState<MockBucket | null>(null);
   const [form, setForm] = useState<BucketFormState | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   function showToast(message: string) {
@@ -33,10 +34,20 @@ export function BucketsTab() {
   function openEditForm(bucket: MockBucket) {
     setEditingBucket(bucket);
     setForm(toFormState(bucket));
+    setOrderError(null);
   }
 
   function handleSave() {
     if (!editingBucket || !form) return;
+
+    const isDuplicateOrder = buckets.some(
+      (item) => item.id !== editingBucket.id && item.sortOrder === form.sortOrder
+    );
+    if (isDuplicateOrder) {
+      setOrderError(`Thứ tự ${form.sortOrder} đã được dùng bởi nhóm khác.`);
+      return;
+    }
+
     setBuckets((prev) => prev.map((item) => (item.id === editingBucket.id ? { ...item, ...form } : item)));
     showToast("Đã lưu nhóm ngân sách");
     setEditingBucket(null);
@@ -60,23 +71,14 @@ export function BucketsTab() {
                 </span>
                 <span className={styles.bucketOrder}>Thứ tự {bucket.sortOrder}</span>
               </div>
-              {bucket.isLocked ? (
-                <>
-                  <span className={styles.lockedNote}>Nhóm này không thể chỉnh sửa</span>
-                  <span className={styles.lockedIndicator} title="Nhóm này không thể chỉnh sửa">
-                    <Lock size={16} strokeWidth={2} />
-                  </span>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className={styles.actionButton}
-                  aria-label={`Sửa nhóm ${bucket.nameVi}`}
-                  onClick={() => openEditForm(bucket)}
-                >
-                  <Pencil size={16} strokeWidth={2} />
-                </button>
-              )}
+              <button
+                type="button"
+                className={styles.actionButton}
+                aria-label={`Sửa nhóm ${bucket.nameVi}`}
+                onClick={() => openEditForm(bucket)}
+              >
+                <Pencil size={16} strokeWidth={2} />
+              </button>
             </div>
           );
         })}
@@ -88,6 +90,7 @@ export function BucketsTab() {
           onClose={() => {
             setEditingBucket(null);
             setForm(null);
+            setOrderError(null);
           }}
           footer={
             <>
@@ -97,6 +100,7 @@ export function BucketsTab() {
                 onClick={() => {
                   setEditingBucket(null);
                   setForm(null);
+                  setOrderError(null);
                 }}
               >
                 Hủy
@@ -154,10 +158,12 @@ export function BucketsTab() {
               min={1}
               className={styles.input}
               value={form.sortOrder}
-              onChange={(event) =>
-                setForm((prev) => (prev ? { ...prev, sortOrder: Number(event.target.value) } : prev))
-              }
+              onChange={(event) => {
+                setOrderError(null);
+                setForm((prev) => (prev ? { ...prev, sortOrder: Number(event.target.value) } : prev));
+              }}
             />
+            {orderError ? <span className={styles.fieldError}>{orderError}</span> : null}
           </label>
         </FormModal>
       ) : null}

@@ -28,6 +28,7 @@ export interface MockCategory {
   defaultBucket: DefaultBucket;
   isMandatory: boolean;
   icon: string;
+  customIconDataUrl?: string | null;
   color: string;
   sortOrder: number;
 }
