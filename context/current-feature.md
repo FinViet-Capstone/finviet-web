@@ -1,8 +1,9 @@
 # Current Feature
 
-**Users screen** — Feature C (User Management) UI, built from
-`context/designs/pencil-mock-design-users.md` and the matching Pencil mockup screens (list view,
-lock confirmation, unlock confirmation, password reset confirmation).
+**System Configuration screen** — Feature D (System Configuration) UI, built from
+`context/designs/pencil-mock-design-system-config.md` and the matching Pencil mockup screens
+(Danh mục tab + Add/Edit + Delete modals, Nhóm ngân sách tab + Edit modal, Trọng số điểm tab +
+Save confirmation modal, Gói dịch vụ tab + Add/Edit + Delete modals).
 
 ## Status
 
@@ -10,19 +11,32 @@ Completed
 
 ## Goals
 
-- Users list view inside the dashboard shell: toolbar (search input + status filter dropdown)
-  above a paginated table (Tên, Email, Trạng thái, Ngày tạo, Tổng GD, Tổng ví, Gói, row actions).
-- Row actions: lock/unlock toggle icon button, `Đặt lại mật khẩu` icon button — reusing the
-  existing `ConfirmationModal` shared component for all 3 confirmation states (lock =
-  destructive/red, unlock = primary/neutral, password reset = primary).
+- One page shell (header + `TabBar`) with 4 tabs, matching the tab-shell pattern already used
+  elsewhere: Danh mục / Nhóm ngân sách / Trọng số điểm / Gói dịch vụ.
+- **Danh mục (Categories)**: table (Icon, Tên danh mục, Tên VI/EN, Loại badge, Bucket mặc định
+  badge, Bắt buộc, Thứ tự) + Add/Edit form modal (name, name VI/EN, type select, mandatory
+  toggle, default bucket select, icon picker, color swatch, sort order) + destructive delete
+  confirmation reusing `ConfirmationModal`.
+- **Nhóm ngân sách (Buckets)**: 3-row list (Needs/Wants/Savings) — locked rows show a lock icon
+  + tooltip instead of an edit action; unlocked rows get an edit form modal (name VI/EN, color,
+  icon, sort order).
+- **Trọng số điểm (Scoring Weights)**: table with inline-editable weekly/monthly weight inputs,
+  a "modified" dot next to changed cells, a `Lưu thay đổi` button that appears once dirty, and a
+  warning-styled (`ConfirmationModal` `variant="warning"`) save confirmation — the highest-stakes
+  action on the screen since it recalculates every customer's AI Spending Score.
+- **Gói dịch vụ (Subscription Plans)**: card grid (not table) + Add/Edit form modal with a
+  feature-bullet-list editor (add/remove rows) + destructive delete confirmation.
 - Visual-only per `context/ai-design-interactions.md` — no real fetch/mutation against
-  `finviet-be`. Mock row data with client-side lock/unlock toggle state so both modal variants
-  are reachable for browser verification; search/filter are visual only (no functional
-  filtering wired).
+  `finviet-be`. Mock data per tab with client-side CRUD/state so every modal variant (add, edit,
+  delete, locked-vs-unlocked bucket, dirty-weights save) is reachable for browser verification.
+- New shared component: `FormModal` (`src/components/form-modal/`) — generic modal shell (title
+  + close X + body + footer slots) for the Add/Edit forms, since `ConfirmationModal` only covers
+  simple confirm/cancel dialogs, not forms. Reused across Categories/Buckets/Plans.
 
 ## Notes
 
-- Route: `src/app/(dashboard)/users/page.tsx` (inside the dashboard shell, unlike Login).
+- Route: `src/app/(dashboard)/system-config/page.tsx` — already wired into the sidebar
+  (`Cấu hình hệ thống`) and `sidebar-nav.tsx`'s `activeKeyByPath`, just needed the page built.
 
 ## History
 
@@ -60,3 +74,18 @@ Completed
   search/status filtering and lock-state toggling (no `finviet-be` calls) so all modal states and
   the success toast are reachable for browser verification. Built on branch
   `feature/users-screen`.
+- 2026-08-04 — **System Configuration screen**: built `src/app/(dashboard)/system-config/page.tsx`
+  matching the Pencil mockup and `context/designs/pencil-mock-design-system-config.md` — a
+  4-tab shell (`TabBar`, extended with a new `onSelect` prop since it was presentational-only
+  until now) covering Danh mục (table + Add/Edit + destructive delete confirm), Nhóm ngân sách
+  (3-row list, Needs/Wants locked with a lock icon + tooltip, Savings editable — matches the
+  mockup's "Sửa nhóm ngân sách" example, which is pre-filled with Savings' data), Trọng số điểm
+  (inline-editable weight table, per-cell "modified" dot, `Lưu thay đổi` button that only
+  appears once dirty, warning-styled `ConfirmationModal` save confirm), and Gói dịch vụ (card
+  grid + Add/Edit modal with a feature-bullet editor + destructive delete confirm). Added a new
+  shared component, `FormModal` (`src/components/form-modal/`), for the Add/Edit forms, since
+  `ConfirmationModal` only covered simple confirm/cancel dialogs. Visual-only per
+  `context/ai-design-interactions.md`: mock data per tab (`mock-categories.ts`,
+  `mock-buckets.ts`, `mock-scoring.ts`, `mock-plans.ts`) with client-side CRUD/state so every
+  modal variant is reachable for browser verification; no `finviet-be` calls. Built on branch
+  `feature/system-config-screen`.
