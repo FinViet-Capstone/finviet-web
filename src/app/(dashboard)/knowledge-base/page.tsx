@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, FileText, Plus, Trash2, Upload } from "lucide-react";
+import { CheckCircle2, Eye, FileText, Plus, Trash2, Upload } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
 import { initialDocuments, type MockDocument } from "./mock-documents";
@@ -20,6 +20,7 @@ export default function KnowledgeBasePage() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [progress, setProgress] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<MockDocument | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<MockDocument | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const progressTimerRef = useRef<number | null>(null);
@@ -142,14 +143,25 @@ export default function KnowledgeBasePage() {
                 <td className={styles.mutedCell}>{document.chunkCount ?? "—"}</td>
                 <td className={styles.mutedCell}>{document.uploadedAtLabel}</td>
                 <td>
-                  <button
-                    type="button"
-                    className={styles.deleteButton}
-                    aria-label={`Xóa tài liệu ${document.title}`}
-                    onClick={() => setDeleteTarget(document)}
-                  >
-                    <Trash2 size={16} strokeWidth={2} />
-                  </button>
+                  <div className={styles.rowActions}>
+                    <button
+                      type="button"
+                      className={styles.previewButton}
+                      aria-label={`Xem trước tài liệu ${document.title}`}
+                      disabled={document.status !== "ready"}
+                      onClick={() => setPreviewTarget(document)}
+                    >
+                      <Eye size={16} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.deleteButton}
+                      aria-label={`Xóa tài liệu ${document.title}`}
+                      onClick={() => setDeleteTarget(document)}
+                    >
+                      <Trash2 size={16} strokeWidth={2} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -278,6 +290,33 @@ export default function KnowledgeBasePage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {previewTarget ? (
+        <FormModal
+          title="Xem trước tài liệu"
+          onClose={() => setPreviewTarget(null)}
+          footer={
+            <button type="button" className={styles.cancelButton} onClick={() => setPreviewTarget(null)}>
+              Đóng
+            </button>
+          }
+        >
+          <div className={styles.previewCard}>
+            <span className={styles.previewIcon}>
+              <FileText size={24} strokeWidth={2} />
+            </span>
+            <div className={styles.previewMeta}>
+              <span className={styles.previewTitle}>{previewTarget.title}</span>
+              <span className={styles.previewDetail}>{previewTarget.chunkCount ?? "—"} đoạn nội dung</span>
+              <span className={styles.previewDetail}>Tải lên: {previewTarget.uploadedAtLabel}</span>
+            </div>
+          </div>
+          <p className={styles.previewNote}>
+            Chưa có nội dung file thực tế để xem trước — bản demo này chỉ hiển thị metadata. Xem trước PDF thật cần
+            backend cung cấp <code>RagDocument.Uri</code>.
+          </p>
+        </FormModal>
       ) : null}
 
       <ConfirmationModal
