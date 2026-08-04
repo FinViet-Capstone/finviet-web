@@ -1,61 +1,16 @@
 # Current Feature
 
-**Admin dashboard review fixes** — a batch of interaction bugs and UX gaps found while walking
-through the already-built screens (Overview, Users, System Configuration, Category Corrections,
-Knowledge Base, Announcements, topbar/sidebar). Not a new screen — fixes and small additions
-across existing ones, tracked in the approved plan
-(`C:\Users\Lenovo\.claude\plans\sparkling-spinning-russell.md`) rather than a design brief, since
-this pass started from live bug reports instead of a Pencil mockup.
+_(None right now — document the next feature/fix here, per `context/ai-interaction.md`'s
+workflow, before starting work on it.)_
 
-## Status
+## Backlog (queued, not started)
 
-Committed on branch `fix/admin-dashboard-review-fixes` (9 focused commits) — build and browser
-verification both passed. Not yet merged.
-
-## Goals
-
-- Sidebar nav items were plain `<div>`s with no `href`/`onClick` → real `next/link`s.
-- Overview trend charts: leftmost X-axis label was clipped (centered off-canvas) → edge-aware
-  tick anchoring + `user-select: none` on the chart wrapper.
-- Topbar: removed the non-functional search icon; moved the admin avatar out of the topbar into a
-  new pinned bottom section of the sidebar, with a dropdown (Tài khoản của tôi / Đăng xuất — mock
-  redirect to `/login`). Added a visual-only "Tài khoản của tôi" account panel.
-- Announcements: removed the disabled "Phân khúc (sắp ra mắt)" target option (segment targeting
-  is spec'd as TBD, not worth showing a dead control for).
-- Users: pagination didn't slice the table at all (buttons just moved the highlight) → expanded
-  mock data to 40 rows and made pagination real (10/page, dynamic page count, resets on filter
-  change).
-- System Configuration → Buckets: removed the Needs/Wants edit lock per product direction (admin
-  should be able to edit all buckets); added sortOrder-uniqueness validation on save (previously
-  two buckets could silently share the same order).
-- System Configuration → Categories: added an SVG upload dropzone for custom category icons
-  (alongside the 5 existing presets); renamed "Bắt buộc" → "Mặc định" to match its real meaning
-  (seeded into every customer's category library vs. hidden by default) — underlying field stays
-  `isMandatory`, matching the real `Category.IsMandatory` backend field.
-- System Configuration → Scoring Weights: mock criteria didn't match the real formula in
-  `finviet-be`'s `SpendingScoreService.cs` at all (wrong names, wrong weights, one fabricated
-  criterion, wrong 0–1 scale). Replaced with the real 3 criteria and weights, added a live formula
-  display and a total-weight validation (must sum to 100%). Also flagged that `ScoringCriterion`
-  isn't actually read by the real scoring service yet — see `context/backend-gaps.md`.
-- System Configuration → Plans: "Xóa" was a hard delete from the mock array despite the confirm
-  copy already promising existing subscribers are unaffected. Changed to a soft-delete
-  ("Ngừng cung cấp") — the plan stays in the list with an "Đã ngừng" badge instead of disappearing.
-- Category Correction Log: added a client-side "Xuất CSV" export button for the filtered rows.
-- Knowledge Base: added a "Xem trước" preview button per ready document (metadata-only, since no
-  real file content exists anywhere in the current mock/upload flow).
-- New `context/backend-gaps.md` documenting every place found where a real endpoint is missing or
-  doesn't satisfy the frontend's needs, for the backend team.
-
-All changes are visual/mock-only per `context/ai-design-interactions.md` — no real `finviet-be`
-calls added. Built on branch `fix/admin-dashboard-review-fixes`.
-
-## Follow-up (queued, not started)
-
-Found while verifying this pass but out of scope for it — approved for a future pass:
+Found during the admin dashboard review pass (2026-08-05) but out of scope for it — approved for
+a future pass:
 
 - Category Correction Log: the date-range filter ("7/30/90 ngày qua") doesn't filter anything,
   even client-side — only the category filter actually works.
-- Category Correction Log: pagination has the same bug the Users screen had before this pass —
+- Category Correction Log: pagination has the same bug the Users screen had before that pass —
   buttons move the highlight but the table always shows the same rows regardless of page.
 
 ## History
@@ -148,3 +103,29 @@ Found while verifying this pass but out of scope for it — approved for a futur
   Visual-only per `context/ai-design-interactions.md`: mock announcement array + a fixed mock
   target-audience count in `mock-announcements.ts`, no `finviet-be` calls. Built on branch
   `feature/announcements-screen`.
+- 2026-08-05 — **Admin dashboard review fixes**: a batch of interaction bugs and UX gaps found
+  walking through the already-built screens, tracked in an approved plan rather than a design
+  brief since this pass started from live bug reports, not a Pencil mockup. Sidebar nav items
+  were plain `<div>`s with no `href`/`onClick` → real `next/link`s. Overview charts: leftmost
+  X-axis label was clipped (centered off-canvas) → edge-aware tick anchoring +
+  `user-select: none` on the chart wrapper. Topbar: removed the non-functional search icon;
+  moved the admin avatar into a new pinned bottom section of the sidebar with a dropdown (Tài
+  khoản của tôi — a new visual-only account panel — / Đăng xuất, mock redirect to `/login`).
+  Announcements: removed the disabled "Phân khúc (sắp ra mắt)" target option (spec'd as TBD).
+  Users: pagination didn't slice the table at all → expanded mock data to 40 rows and made
+  pagination real. System Configuration → Buckets: removed the Needs/Wants edit lock per product
+  direction (admin can edit all buckets) and added sortOrder-uniqueness validation on save.
+  Categories: added an SVG upload dropzone for custom icons alongside the 5 presets; renamed
+  "Bắt buộc" → "Mặc định" in the UI to match its real meaning (underlying field stays
+  `isMandatory`, matching the real `Category.IsMandatory` backend field). Scoring Weights: mock
+  criteria didn't match the real formula in `finviet-be`'s `SpendingScoreService.cs` at all —
+  replaced with the real 3 criteria/weights, added a live formula display, total-weight
+  validation, and a notice that `ScoringCriterion` isn't actually read by the live scoring
+  service yet. Plans: changed a hard delete to a soft-delete ("Ngừng cung cấp") so the plan stays
+  visible with an "Đã ngừng" badge instead of disappearing, matching what the confirm copy
+  already promised. Category Correction Log: added a client-side "Xuất CSV" export button.
+  Knowledge Base: added a "Xem trước" metadata-preview button per ready document. New
+  `context/backend-gaps.md` documents every place a real endpoint is missing or doesn't satisfy
+  the frontend's needs, for the backend team. All changes visual/mock-only per
+  `context/ai-design-interactions.md` — no real `finviet-be` calls added. Built across 10 focused
+  commits on branch `fix/admin-dashboard-review-fixes`, merged to `dev`.
