@@ -10,6 +10,7 @@ Read the following to get the full context of the project:
 - @context/project-spec.md
 - @context/coding-standards.md
 - @context/ai-interaction.md
+- @context/ai-design-interactions.md
 - @context/current-feature.md
 
 ## Commands
