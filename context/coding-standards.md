@@ -1,74 +1,93 @@
-# Next.js / React / TypeScript Coding Standards
+# Coding Standards
 
-You are an expert in TypeScript, Next.js App Router, and React, working on finviet-web — the
-FinViet Admin internal dashboard (see [project-spec.md](project-spec.md)).
+## TypeScript
 
-Note: this repo pins a pre-release Next.js version with breaking changes vs. training-data
-knowledge. Before writing routing/data-fetching code, check `node_modules/next/dist/docs/` per
-[AGENTS.md](../AGENTS.md).
+- Strict mode enabled
+- No `any` types - use proper typing or `unknown`
+- Define interfaces for all props, API responses, and data models
+- Use type inference where obvious, explicit types where helpful
 
-## Code Style and Structure
-- Write concise, technical TypeScript code with accurate examples.
-- Use functional and declarative programming patterns; avoid classes.
-- Prefer iteration and modularization over code duplication.
-- Use descriptive variable names with auxiliary verbs (e.g., `isLoading`, `hasError`).
-- Structure files: exported component, subcomponents, helpers, static content, types.
+## React
 
-## Naming Conventions
-- Use lowercase with dashes for directories (e.g., `components/auth-wizard`).
-- Favor named exports for components.
+- Functional components only (no class components)
+- Use hooks for state and side effects
+- Keep components focused - one job per component
+- Extract reusable logic into custom hooks
 
-## TypeScript Usage
-- Use TypeScript for all code; prefer interfaces over types.
-- Avoid enums; use maps instead.
-- Use functional components with TypeScript interfaces.
+## Next.js
 
-## Syntax and Formatting
-- Use the "function" keyword for pure functions.
-- Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.
-- Use declarative JSX.
+- Server components by default
+- Only use `'use client'` when needed (interactivity, hooks, browser APIs)
+- Route Handlers are the standard mechanism for client-triggered mutations — see Data Fetching.
+  Reach for one whenever a Client Component needs to call `finviet-be`.
+- Use Server Actions only for the cases Route Handlers can't cover well: progressive-enhancement
+  forms with no client-side state, or one-off server-only logic with no client caller.
+- Otherwise, fetch data directly in server components
+- Dynamic routes for item/collection pages
 
-## UI and Styling
-- Current convention is CSS Modules (`*.module.css`, colocated with the component) — this is the
-  `create-next-app` scaffold default, not yet a final decision (project-spec.md's Tech Stack
-  section lists styling as still open/TBD). Don't introduce Tailwind, Shadcn UI, or another
-  styling system without confirming first.
-- Desktop-first layout — this is an internal ops tool, no phone-form-factor constraint (see
-  project-spec.md's UI/UX section). Mobile/tablet breakpoints are explicitly out of scope.
-- Vietnamese-first UI copy, matching the mobile app's language convention.
+## Tailwind CSS v4
 
-## Data Fetching and Server State
-- **TanStack Query** (`@tanstack/react-query`) is the client-side data layer — use it for
-  fetching, caching, and mutations in client components.
-- **Axios calls to `finviet-be` stay server-side only** (Route Handlers / Server Components/Actions)
-  — the browser only ever holds better-auth's session cookie, never the `finviet-be` JWT. Don't
-  add client-side axios calls to `finviet-be`; go through a Next.js route handler instead.
-- `finviet-be` responses are enveloped as `{ success, message, data }` — unwrap consistently
-  rather than reaching into `.data.data` ad hoc at call sites.
+**CRITICAL**: We are using Tailwind CSS v4, which uses CSS-based configuration.
 
-## Auth
-- `better-auth` ([src/lib/auth.ts](../src/lib/auth.ts)) owns session cookies and 2FA (TOTP). It
-  does **not** own password verification — `finviet-be`'s `POST /api/auth/admin-login` is the
-  source of truth for credential checks. Don't add competing auth logic without checking this
-  split first.
-- Public sign-up is disabled (`disableSignUp: true`) — admin accounts are provisioned
-  server-side only, never via a public form.
+- **DO NOT** create `tailwind.config.ts` or `tailwind.config.js` files (those are for v3)
+- All theme configuration must be done in CSS using the `@theme` directive in `src/app/globals.css`
+- Use CSS custom properties for colors, spacing, etc.
+- No JavaScript-based config allowed
 
-## Performance Optimization
-- Minimize `'use client'`, `useEffect`, and `setState`; favor React Server Components (RSC).
-- Wrap client components in Suspense with a fallback.
-- Use dynamic loading (`next/dynamic`) for non-critical components.
-- Optimize images: WebP format, explicit size data, lazy loading via `next/image`.
+Example v4 configuration:
 
-## Key Conventions
-- Optimize Web Vitals (LCP, CLS, FID).
-- Limit `'use client'`:
-  - Favor server components and Next.js SSR.
-  - Use only for Web API access or interactivity in small, leaf components.
-  - Avoid for data fetching or global state management.
-- Confirmation step required before destructive/high-impact actions in the UI (account lock,
-  password reset trigger, delete, announcement send) — matches the interaction convention in
-  project-spec.md.
+```css
+@import "tailwindcss";
 
-Follow the Next.js docs bundled in `node_modules/next/dist/docs/` for Data Fetching, Rendering,
-and Routing — not general training-data knowledge, since this version has breaking changes.
+@theme {
+  --color-primary: oklch(50% 0.2 250);
+}
+```
+
+## File Organization
+
+- Components: `src/components/[feature]/ComponentName.tsx`
+- Pages: `src/app/[route]/page.tsx`
+- Route Handlers: `src/app/api/[feature]/route.ts`
+- Types: `src/types/[feature].ts`
+- Lib/Utils: `src/lib/[utility].ts`
+
+## Naming
+
+- Components: PascalCase (`ItemCard.tsx`)
+- Files: Match component name or kebab-case
+- Functions: camelCase
+- Constants: SCREAMING_SNAKE_CASE
+- Types/Interfaces: PascalCase (no prefix)
+
+## Styling
+
+- Tailwind CSS for all styling
+- Use shadcn/ui components where applicable
+- No inline styles
+- light mode first, dark mode as option
+
+## Data Fetching
+
+- No direct database access from this app — `finviet-be` (a separate .NET API) is the only data
+  source, reached server-side via Axios. The browser never holds the `finviet-be` JWT, only
+  better-auth's session cookie.
+- Client components use TanStack Query (`useQuery`/`useMutation`) as the one client-side data
+  layer — calling Next.js Route Handlers, which attach the admin's JWT and call `finviet-be`.
+  Don't call Server Actions directly from Client Components; route all client-triggered
+  mutations through this same Route-Handler-via-TanStack-Query path for one consistent,
+  auditable place to keep JWT-attachment and envelope-unwrapping (`{ success, message, data }`)
+  logic.
+- Validate all inputs with Zod
+
+## Error Handling
+
+- Use try/catch in Route Handlers
+- Return `{ success, data, error }` pattern from Route Handler responses
+- Display user-friendly error messages via toast
+
+## Code Quality
+
+- No commented-out code unless specified
+- No unused imports or variables
+- Keep functions under 50 lines when possible
