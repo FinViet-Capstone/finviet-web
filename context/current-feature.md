@@ -1,8 +1,8 @@
 # Current Feature
 
-**AI Knowledge Base screen** — Feature F (AI Knowledge Base Management) UI, built from
-`context/designs/pencil-mock-design-knowledge-base.md` (no matching `.pen` mockup screens exist
-yet for this feature — briefs and screenshots are the visual source of truth here).
+**Announcements screen** — Feature G (Announcements) UI, built from
+`context/designs/pencil-mock-design-announcements.md` (no matching `.pen` mockup screens exist
+yet for this feature — brief + screenshots are the visual source of truth here).
 
 ## Status
 
@@ -10,30 +10,30 @@ Completed
 
 ## Goals
 
-- Page shell (header + `+ Tải lên tài liệu` button top-right, matching the sidebar's existing
-  `knowledge-base` key, `Kho tri thức AI`) at `/knowledge-base`.
-- **Table**: Tiêu đề, Trạng thái (Sẵn sàng/green vs. Đang xử lý/amber badge), Số đoạn (chunk
-  count, `—` while processing), Ngày tải lên. Row action: `Xóa` (trash icon) → delete
-  confirmation modal.
-- **Upload modal — 3 states**, same modal swapping content:
-  1. Idle: drag-and-drop PDF zone + title text field, `Tải lên` disabled until both are set.
-  2. Progress: file name + animated progress bar, "Đang tải lên..." — no close affordance,
-     upload can't be dismissed mid-flight.
-  3. Success: checkmark, "Tải lên thành công", `Xong` button closes modal and adds a new
-     "Đang xử lý" row to the table.
-- **Delete confirmation modal**: reuses `ConfirmationModal` (destructive variant) — "Xóa tài
-  liệu?" / "Xóa [tiêu đề]? Tài liệu sẽ không còn được AI sử dụng khi trả lời người dùng."
-- Reuse `FormModal` for the upload modal's idle state; the progress/success states diverge
-  enough visually (no header/close button, centered layout) that they render custom content
-  rather than forcing them through the same header+footer shell.
+- Single page at `/announcements` (sidebar `Thông báo` key already wired) — compose panel above
+  a read-only history table, not tabs.
+- **Compose panel**: Tiêu đề input, Nội dung textarea with a char counter (amber near the
+  500-char limit, red if exceeded), Đối tượng target selector — only `Tất cả người dùng` is a
+  real selectable option, `Phân khúc (sắp ra mắt)` renders disabled since segment targeting is
+  TBD per project-spec.md's Feature G gap note. Right-aligned `Xem trước` (secondary) / `Gửi`
+  (primary) buttons.
+- **Preview modal** (`Xem trước`): read-only, reuses `FormModal`, renders the announcement inside
+  a phone-frame mockup styled like the mobile notification center (icon, title, body, "Vừa
+  xong"). Single `Đóng` button, no send action inside.
+- **Send confirmation modal** (`Gửi`): reuses `ConfirmationModal` (destructive variant, matching
+  how it's used elsewhere for high-impact actions) — "Gửi thông báo?" / "Gửi thông báo này đến
+  [N] người dùng? Hành động này không thể hoàn tác." `Gửi` confirms, adds a new row to the top of
+  the history table, resets the compose form, and shows a success toast.
+- **History table**: Tiêu đề, Đối tượng, Số người nhận, Thời gian gửi. No row actions —
+  announcements aren't editable once sent.
 - Visual-only per `context/ai-design-interactions.md` — no real fetch against `finviet-be`. Mock
-  document array with a simulated (setTimeout-driven) upload progress/success flow so all 3
-  modal states and the delete flow are reachable for browser verification.
+  announcement array + a fixed mock target-audience count drive the live recipient count shown
+  in the confirm modal and the new history row.
 
 ## Notes
 
-- Route: `src/app/(dashboard)/knowledge-base/page.tsx` — sidebar (`Kho tri thức AI`) and
-  `sidebar-nav.tsx`'s `activeKeyByPath` already point at `/knowledge-base`, just needed the page
+- Route: `src/app/(dashboard)/announcements/page.tsx` — sidebar (`Thông báo`) and
+  `sidebar-nav.tsx`'s `activeKeyByPath` already point at `/announcements`, just needed the page
   built.
 
 ## History
@@ -112,3 +112,17 @@ Completed
   toast, consistent with other screens with real mutations. Visual-only per
   `context/ai-design-interactions.md`: mock document array in `mock-documents.ts`, no
   `finviet-be` calls. Built on branch `feature/knowledge-base-screen`.
+- 2026-08-04 — **Announcements screen**: built `src/app/(dashboard)/announcements/page.tsx`
+  matching `context/designs/pencil-mock-design-announcements.md` — a compose panel (title input,
+  body textarea with a 500-char counter that turns amber near the limit, target selector with
+  only `Tất cả người dùng` selectable and `Phân khúc (sắp ra mắt)` disabled) above a read-only
+  history table (Tiêu đề, Đối tượng, Số người nhận, Thời gian gửi). `Xem trước` opens a
+  `FormModal`-based preview rendering the announcement inside a phone-frame mockup of the mobile
+  notification center; `Gửi` opens the existing `ConfirmationModal` (destructive variant, reused
+  as-is rather than adding the brief's one-off icon/close-button decoration, to stay consistent
+  with every other confirm modal in the app) showing the live target-audience count, and
+  confirming adds a new row to the top of the history table, resets the compose form, and shows a
+  success toast — matching the pattern established by other screens with real mutations.
+  Visual-only per `context/ai-design-interactions.md`: mock announcement array + a fixed mock
+  target-audience count in `mock-announcements.ts`, no `finviet-be` calls. Built on branch
+  `feature/announcements-screen`.
