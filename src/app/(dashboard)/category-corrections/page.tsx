@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, Calendar, Download, Filter, Mail, Clock } from "lucide-react";
 import { FormModal } from "@/components/form-modal/form-modal";
+import { getPageNumbers } from "@/lib/pagination";
 import { correctedCategoryOptions, initialCorrections, type MockCorrection } from "./mock-corrections";
 import styles from "./category-corrections.module.css";
 
@@ -14,8 +15,9 @@ const dateRangeOptions: { value: DateRangeFilter; label: string }[] = [
   { value: "90d", label: "90 ngày qua" },
 ];
 
-const pageNumbers = [1, 2, 3];
-const lastPage = 18;
+const dateRangeDays: Record<DateRangeFilter, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
+const PAGE_SIZE = 10;
 
 function formatAmount(amount: number): string {
   return `${amount.toLocaleString("vi-VN")}₫`;
@@ -27,10 +29,34 @@ export default function CategoryCorrectionsPage() {
   const [activePage, setActivePage] = useState(1);
   const [selectedCorrection, setSelectedCorrection] = useState<MockCorrection | null>(null);
 
+  // Captured once at mount rather than read fresh on every render — Date.now()
+  // is impure and this page doesn't need a continuously-ticking clock.
+  const [now] = useState(() => Date.now());
+
   const filteredCorrections = useMemo(() => {
-    if (categoryFilter === "all") return initialCorrections;
-    return initialCorrections.filter((correction) => correction.correctedCategoryName === categoryFilter);
-  }, [categoryFilter]);
+    const cutoff = now - dateRangeDays[dateRange] * 24 * 60 * 60 * 1000;
+    return initialCorrections.filter((correction) => {
+      const matchesCategory = categoryFilter === "all" || correction.correctedCategoryName === categoryFilter;
+      const matchesDateRange = new Date(correction.correctedAtISO).getTime() >= cutoff;
+      return matchesCategory && matchesDateRange;
+    });
+  }, [categoryFilter, dateRange, now]);
+
+  // Reset to page 1 whenever the filters change (adjusting state during render
+  // instead of an effect, per https://react.dev/learn/you-might-not-need-an-effect).
+  const [prevFilters, setPrevFilters] = useState({ categoryFilter, dateRange });
+  if (prevFilters.categoryFilter !== categoryFilter || prevFilters.dateRange !== dateRange) {
+    setPrevFilters({ categoryFilter, dateRange });
+    setActivePage(1);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filteredCorrections.length / PAGE_SIZE));
+  const clampedPage = Math.min(activePage, totalPages);
+  const pagedCorrections = filteredCorrections.slice(
+    (clampedPage - 1) * PAGE_SIZE,
+    clampedPage * PAGE_SIZE
+  );
+  const pageNumbers = getPageNumbers(clampedPage, totalPages);
 
   function handleExportCsv() {
     const headers = ["Mô tả giao dịch", "AI đề xuất", "Đã sửa", "Khách hàng", "Thời gian"];
@@ -116,7 +142,7 @@ export default function CategoryCorrectionsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredCorrections.map((correction) => (
+            {pagedCorrections.map((correction) => (
               <tr
                 key={correction.id}
                 className={styles.row}
@@ -166,35 +192,33 @@ export default function CategoryCorrectionsPage() {
           <button
             type="button"
             className={styles.pageNav}
-            disabled={activePage === 1}
+            disabled={clampedPage === 1}
             onClick={() => setActivePage((page) => Math.max(1, page - 1))}
             aria-label="Trang trước"
           >
             ‹
           </button>
-          {pageNumbers.map((page) => (
-            <button
-              key={page}
-              type="button"
-              className={page === activePage ? styles.pageNumberActive : styles.pageNumber}
-              onClick={() => setActivePage(page)}
-            >
-              {page}
-            </button>
-          ))}
-          <span className={styles.pageEllipsis}>…</span>
-          <button
-            type="button"
-            className={activePage === lastPage ? styles.pageNumberActive : styles.pageNumber}
-            onClick={() => setActivePage(lastPage)}
-          >
-            {lastPage}
-          </button>
+          {pageNumbers.map((page, index) =>
+            page === "…" ? (
+              <span key={`ellipsis-${index}`} className={styles.pageEllipsis}>
+                …
+              </span>
+            ) : (
+              <button
+                key={page}
+                type="button"
+                className={page === clampedPage ? styles.pageNumberActive : styles.pageNumber}
+                onClick={() => setActivePage(page)}
+              >
+                {page}
+              </button>
+            )
+          )}
           <button
             type="button"
             className={styles.pageNav}
-            disabled={activePage === lastPage}
-            onClick={() => setActivePage((page) => Math.min(lastPage, page + 1))}
+            disabled={clampedPage === totalPages}
+            onClick={() => setActivePage((page) => Math.min(totalPages, page + 1))}
             aria-label="Trang sau"
           >
             ›

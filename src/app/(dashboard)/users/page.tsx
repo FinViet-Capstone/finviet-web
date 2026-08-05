@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Filter, KeyRound, Lock, Search, Unlock } from "lucide-react";
 import { ConfirmationModal, type ConfirmationModalVariant } from "@/components/confirmation-modal/confirmation-modal";
+import { getPageNumbers } from "@/lib/pagination";
 import { initialCustomers, type MockCustomer } from "./mock-users";
 import styles from "./users.module.css";
 
@@ -45,23 +46,6 @@ const modalCopyByAction: Record<
 };
 
 const PAGE_SIZE = 10;
-
-function getPageNumbers(current: number, total: number): (number | "…")[] {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-  const pages = new Set<number>([1, 2, total - 1, total, current - 1, current, current + 1]);
-  const sorted = [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
-
-  const result: (number | "…")[] = [];
-  sorted.forEach((page, index) => {
-    if (index > 0 && page - sorted[index - 1] > 1) {
-      result.push("…");
-    }
-    result.push(page);
-  });
-  return result;
-}
 
 export default function UsersPage() {
   const [customers, setCustomers] = useState(initialCustomers);
