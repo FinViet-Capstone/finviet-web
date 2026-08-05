@@ -3,16 +3,6 @@
 _(None right now — document the next feature/fix here, per `context/ai-interaction.md`'s
 workflow, before starting work on it.)_
 
-## Backlog (queued, not started)
-
-Found during the admin dashboard review pass (2026-08-05) but out of scope for it — approved for
-a future pass:
-
-- Category Correction Log: the date-range filter ("7/30/90 ngày qua") doesn't filter anything,
-  even client-side — only the category filter actually works.
-- Category Correction Log: pagination has the same bug the Users screen had before that pass —
-  buttons move the highlight but the table always shows the same rows regardless of page.
-
 ## History
 
 <!-- Keep this updated. Earliest to latest -->
@@ -129,3 +119,10 @@ a future pass:
   the frontend's needs, for the backend team. All changes visual/mock-only per
   `context/ai-design-interactions.md` — no real `finviet-be` calls added. Built across 10 focused
   commits on branch `fix/admin-dashboard-review-fixes`, merged to `dev`.
+- 2026-08-05 — **Category Correction Log: real date filter + pagination**: follow-up from the
+  dashboard review pass above. The date-range select (7/30/90 ngày qua) didn't filter anything,
+  even client-side, and pagination had the same fake-slicing bug Users had before that pass.
+  Expanded `mock-corrections.ts` to 60 rows spanning ~90 days with real timestamps, filtered by
+  both category and date range, and paginated the actual filtered result. Extracted the
+  page-number-list logic shared with Users into `src/lib/pagination.ts`. Built on branch
+  `fix/category-corrections-filters`.
