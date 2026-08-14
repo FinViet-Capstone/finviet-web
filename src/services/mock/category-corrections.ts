@@ -1,15 +1,12 @@
-export interface MockCorrection {
-  id: string;
-  transactionDescription: string;
-  amount: number;
-  aiGuess: string;
-  correctedCategoryName: string;
-  correctedCategoryColor: string;
-  customerEmail: string;
-  correctedAtLabel: string;
-  correctedAtFull: string;
-  correctedAtISO: string;
-}
+import type {
+  CategoryCorrectionView,
+  CorrectionsListResult,
+  DateRangeFilter,
+  ExportCorrectionsParams,
+  ListCorrectionsParams,
+} from "@/types/category-corrections";
+import { createDevStore } from "./dev-store";
+import { delay } from "./delay";
 
 export const correctedCategoryOptions = ["Cà phê", "Giải trí", "Dịch vụ đăng ký", "Di chuyển"];
 
@@ -49,7 +46,7 @@ function formatRelativeLabel(daysAgo: number, hoursAgo: number): string {
   return `${daysAgo} ngày trước`;
 }
 
-function buildCorrections(count: number): MockCorrection[] {
+function buildCorrections(count: number): CategoryCorrectionView[] {
   const now = new Date();
 
   return Array.from({ length: count }, (_, i) => {
@@ -79,4 +76,28 @@ function buildCorrections(count: number): MockCorrection[] {
   });
 }
 
-export const initialCorrections: MockCorrection[] = buildCorrections(60);
+const store = createDevStore<CategoryCorrectionView[]>("category-corrections", () => buildCorrections(60));
+
+const dateRangeDays: Record<DateRangeFilter, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
+function filterCorrections(dateRange: DateRangeFilter, category?: string): CategoryCorrectionView[] {
+  const cutoff = Date.now() - dateRangeDays[dateRange] * 24 * 60 * 60 * 1000;
+  return store.get().filter((correction) => {
+    const matchesCategory = !category || category === "all" || correction.correctedCategoryName === category;
+    const matchesDateRange = new Date(correction.correctedAtISO).getTime() >= cutoff;
+    return matchesCategory && matchesDateRange;
+  });
+}
+
+export async function listCorrections(params: ListCorrectionsParams): Promise<CorrectionsListResult> {
+  await delay();
+  const filtered = filterCorrections(params.dateRange, params.category);
+  const start = (params.page - 1) * params.pageSize;
+  const items = filtered.slice(start, start + params.pageSize);
+  return { items, total: filtered.length, page: params.page, pageSize: params.pageSize };
+}
+
+export async function exportCorrections(params: ExportCorrectionsParams): Promise<CategoryCorrectionView[]> {
+  await delay();
+  return filterCorrections(params.dateRange, params.category);
+}

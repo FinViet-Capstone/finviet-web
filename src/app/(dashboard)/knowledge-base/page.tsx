@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Eye, FileText, Plus, Trash2, Upload } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
-import { initialDocuments, type MockDocument } from "./mock-documents";
+import { useDeleteDocument, useDocuments, useUploadDocument } from "@/hooks/useDocuments";
+import type { AdminDocument } from "@/types/knowledge-base";
 import styles from "./knowledge-base.module.css";
 
 type UploadStep = "idle" | "progress" | "success";
@@ -13,14 +14,18 @@ const PROGRESS_INTERVAL_MS = 150;
 const PROGRESS_STEP = 12;
 
 export default function KnowledgeBasePage() {
-  const [documents, setDocuments] = useState(initialDocuments);
+  const { data: documents = [], isLoading, isError } = useDocuments();
+  const uploadDocument = useUploadDocument();
+  const deleteDocument = useDeleteDocument();
+
   const [uploadStep, setUploadStep] = useState<UploadStep | null>(null);
-  const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [isDragActive, setIsDragActive] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [deleteTarget, setDeleteTarget] = useState<MockDocument | null>(null);
-  const [previewTarget, setPreviewTarget] = useState<MockDocument | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminDocument | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<AdminDocument | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const progressTimerRef = useRef<number | null>(null);
@@ -40,27 +45,44 @@ export default function KnowledgeBasePage() {
 
   function openUploadModal() {
     setUploadStep("idle");
-    setFileName("");
+    setFile(null);
     setTitle("");
     setIsDragActive(false);
     setProgress(0);
+    setUploadError(null);
   }
 
   function closeUploadModal() {
     setUploadStep(null);
   }
 
-  function pickFile(name: string) {
-    setFileName(name);
+  function pickFile(selectedFile: File) {
+    setFile(selectedFile);
     if (!title) {
-      setTitle(name.replace(/\.pdf$/i, ""));
+      setTitle(selectedFile.name.replace(/\.pdf$/i, ""));
     }
   }
 
   function handleStartUpload() {
-    if (!fileName || !title.trim()) return;
+    if (!file || !title.trim()) return;
     setUploadStep("progress");
     setProgress(0);
+    setUploadError(null);
+
+    const formData = new FormData();
+    formData.set("title", title.trim());
+    formData.set("file", file);
+    uploadDocument.mutate(formData, {
+      onError: (err) => {
+        if (progressTimerRef.current !== null) {
+          window.clearInterval(progressTimerRef.current);
+          progressTimerRef.current = null;
+        }
+        setUploadStep("idle");
+        setUploadError(err instanceof Error ? err.message : "Không thể tải lên tài liệu.");
+      },
+    });
+
     progressTimerRef.current = window.setInterval(() => {
       setProgress((prev) => {
         const next = Math.min(100, prev + PROGRESS_STEP);
@@ -77,21 +99,14 @@ export default function KnowledgeBasePage() {
   }
 
   function handleUploadDone() {
-    const newDocument: MockDocument = {
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      status: "processing",
-      chunkCount: null,
-      uploadedAtLabel: "Hôm nay",
-    };
-    setDocuments((prev) => [newDocument, ...prev]);
     closeUploadModal();
   }
 
   function handleDelete() {
     if (!deleteTarget) return;
-    setDocuments((prev) => prev.filter((doc) => doc.id !== deleteTarget.id));
-    showToast(`Đã xóa tài liệu ${deleteTarget.title}`);
+    deleteDocument.mutate(deleteTarget.id, {
+      onSuccess: () => showToast(`Đã xóa tài liệu ${deleteTarget.title}`),
+    });
     setDeleteTarget(null);
   }
 
@@ -120,6 +135,20 @@ export default function KnowledgeBasePage() {
             </tr>
           </thead>
           <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={5} className={styles.emptyState}>
+                  Đang tải…
+                </td>
+              </tr>
+            ) : null}
+            {isError ? (
+              <tr>
+                <td colSpan={5} className={styles.emptyState}>
+                  Không thể tải danh sách tài liệu.
+                </td>
+              </tr>
+            ) : null}
             {documents.map((document) => (
               <tr key={document.id} className={styles.row}>
                 <td>
@@ -165,7 +194,7 @@ export default function KnowledgeBasePage() {
                 </td>
               </tr>
             ))}
-            {documents.length === 0 ? (
+            {!isLoading && !isError && documents.length === 0 ? (
               <tr>
                 <td colSpan={5} className={styles.emptyState}>
                   Chưa có tài liệu nào trong kho tri thức.
@@ -188,7 +217,7 @@ export default function KnowledgeBasePage() {
               <button
                 type="button"
                 className={styles.confirmButton}
-                disabled={!fileName || !title.trim()}
+                disabled={!file || !title.trim()}
                 onClick={handleStartUpload}
               >
                 Tải lên
@@ -196,6 +225,7 @@ export default function KnowledgeBasePage() {
             </>
           }
         >
+          {uploadError ? <p className={styles.dropzoneHint}>{uploadError}</p> : null}
           <label
             className={isDragActive ? `${styles.dropzone} ${styles.dropzoneActive}` : styles.dropzone}
             onDragOver={(event) => {
@@ -207,14 +237,14 @@ export default function KnowledgeBasePage() {
               event.preventDefault();
               setIsDragActive(false);
               const droppedFile = event.dataTransfer.files[0];
-              if (droppedFile) pickFile(droppedFile.name);
+              if (droppedFile) pickFile(droppedFile);
             }}
           >
             <span className={styles.dropzoneIcon}>
               <Upload size={20} strokeWidth={2} />
             </span>
-            {fileName ? (
-              <span className={styles.dropzoneFile}>{fileName}</span>
+            {file ? (
+              <span className={styles.dropzoneFile}>{file.name}</span>
             ) : (
               <>
                 <span className={styles.dropzoneLabel}>Kéo thả file PDF vào đây hoặc chọn file</span>
@@ -227,7 +257,7 @@ export default function KnowledgeBasePage() {
               className={styles.hiddenFileInput}
               onChange={(event) => {
                 const selectedFile = event.target.files?.[0];
-                if (selectedFile) pickFile(selectedFile.name);
+                if (selectedFile) pickFile(selectedFile);
               }}
             />
           </label>
@@ -252,7 +282,7 @@ export default function KnowledgeBasePage() {
             </div>
             <div className={styles.progressFile}>
               <FileText size={16} strokeWidth={2} />
-              {fileName}
+              {file?.name}
             </div>
             <div className={styles.progressTrack}>
               <div className={styles.progressFill} style={{ width: `${progress}%` }} />
@@ -281,7 +311,7 @@ export default function KnowledgeBasePage() {
               Tải lên thành công
             </h2>
             <p className={styles.successDescription}>
-              {fileName} đang được xử lý và sẽ sẵn sàng sau ít phút.
+              {file?.name} đang được xử lý và sẽ sẵn sàng sau ít phút.
             </p>
             <div className={styles.successFooter}>
               <button type="button" className={styles.confirmButton} onClick={handleUploadDone}>

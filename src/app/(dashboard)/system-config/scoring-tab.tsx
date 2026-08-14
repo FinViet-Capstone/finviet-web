@@ -3,16 +3,17 @@
 import { useMemo, useState } from "react";
 import { Save, TriangleAlert } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
-import { initialScoringCriteria, type MockScoringCriterion } from "./mock-scoring";
+import { useSaveScoringCriteria, useScoringCriteria } from "@/hooks/useScoringCriteria";
+import type { AdminScoringCriterion } from "@/types/scoring";
 import styles from "./system-config.module.css";
 
 type WeightField = "weightWeekly" | "weightMonthly";
 
-function sumWeights(criteria: MockScoringCriterion[], field: WeightField): number {
+function sumWeights(criteria: AdminScoringCriterion[], field: WeightField): number {
   return criteria.reduce((total, criterion) => total + (criterion[field] ?? 0), 0);
 }
 
-function buildFormula(criteria: MockScoringCriterion[], field: WeightField, label: string): string {
+function buildFormula(criteria: AdminScoringCriterion[], field: WeightField, label: string): string {
   const terms = criteria
     .filter((criterion) => criterion[field] !== null)
     .map((criterion) => `${criterion[field]}% × ${criterion.name}`);
@@ -20,14 +21,25 @@ function buildFormula(criteria: MockScoringCriterion[], field: WeightField, labe
 }
 
 export function ScoringTab() {
-  const [savedCriteria, setSavedCriteria] = useState(initialScoringCriteria);
-  const [draftCriteria, setDraftCriteria] = useState(initialScoringCriteria);
+  const { data: savedCriteria = [], isLoading, isError } = useScoringCriteria();
+  const saveScoringCriteria = useSaveScoringCriteria();
+
+  const [draftCriteria, setDraftCriteria] = useState<AdminScoringCriterion[]>([]);
+  const [isSyncedFromServer, setIsSyncedFromServer] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const isDirty = draftCriteria.some((criterion, index) => {
-    const saved = savedCriteria[index];
-    return criterion.weightWeekly !== saved.weightWeekly || criterion.weightMonthly !== saved.weightMonthly;
+  // Seed the local edit buffer once the server data first arrives — state update during
+  // render instead of an effect, per https://react.dev/learn/you-might-not-need-an-effect.
+  if (!isSyncedFromServer && savedCriteria.length > 0) {
+    setIsSyncedFromServer(true);
+    setDraftCriteria(savedCriteria);
+  }
+
+  const isDirty = draftCriteria.some((criterion) => {
+    const saved = savedCriteria.find((item) => item.code === criterion.code);
+    return saved && (criterion.weightWeekly !== saved.weightWeekly || criterion.weightMonthly !== saved.weightMonthly);
   });
 
   const weeklyTotal = useMemo(() => sumWeights(draftCriteria, "weightWeekly"), [draftCriteria]);
@@ -42,16 +54,28 @@ export function ScoringTab() {
     );
   }
 
-  function isModified(criterion: MockScoringCriterion, field: WeightField) {
+  function isModified(criterion: AdminScoringCriterion, field: WeightField) {
     const saved = savedCriteria.find((item) => item.code === criterion.code);
     return saved ? saved[field] !== criterion[field] : false;
   }
 
   function handleSave() {
-    setSavedCriteria(draftCriteria);
-    setIsSaveModalOpen(false);
-    setToast("Đã lưu trọng số mới");
-    window.setTimeout(() => setToast(null), 3000);
+    setSaveError(null);
+    saveScoringCriteria.mutate(
+      draftCriteria.map(({ code, weightWeekly, weightMonthly }) => ({ code, weightWeekly, weightMonthly })),
+      {
+        onSuccess: (data) => {
+          setDraftCriteria(data);
+          setIsSaveModalOpen(false);
+          setToast("Đã lưu trọng số mới");
+          window.setTimeout(() => setToast(null), 3000);
+        },
+        onError: (err) => {
+          setIsSaveModalOpen(false);
+          setSaveError(err instanceof Error ? err.message : "Không thể lưu trọng số.");
+        },
+      }
+    );
   }
 
   return (
@@ -62,6 +86,10 @@ export function ScoringTab() {
         bảng <code>ScoringCriterion</code> — chỉnh sửa ở đây sẽ không ảnh hưởng đến điểm chi tiêu thật cho đến khi
         backend được kết nối lại. Xem <code>context/backend-gaps.md</code>.
       </div>
+
+      {isLoading ? <p className={styles.hint}>Đang tải…</p> : null}
+      {isError ? <p className={styles.fieldError}>Không thể tải trọng số điểm.</p> : null}
+      {saveError ? <p className={styles.fieldError}>{saveError}</p> : null}
 
       <div className={styles.toolbar} style={{ justifyContent: "space-between", alignItems: "center" }}>
         <p className={styles.hint}>Điều chỉnh trọng số ảnh hưởng đến điểm chi tiêu AI của toàn bộ người dùng.</p>

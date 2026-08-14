@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Ban, Check, Pencil, Plus, X } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
-import { initialPlans, type MockPlan } from "./mock-plans";
+import { useCreatePlan, useDiscontinuePlan, usePlans, useUpdatePlan } from "@/hooks/usePlans";
+import type { AdminPlan } from "@/types/plans";
 import styles from "./system-config.module.css";
 
 interface PlanFormState {
@@ -14,7 +15,7 @@ interface PlanFormState {
   features: string[];
 }
 
-function toFormState(plan: MockPlan | null): PlanFormState {
+function toFormState(plan: AdminPlan | null): PlanFormState {
   if (plan) {
     const price = plan.priceUnit ? `${plan.priceValue} ${plan.priceUnit}` : plan.priceValue;
     return { code: plan.code, name: plan.name, price, features: [...plan.features] };
@@ -28,11 +29,15 @@ function parsePrice(price: string): { priceValue: string; priceUnit: string } {
 }
 
 export function PlansTab() {
-  const [plans, setPlans] = useState(initialPlans);
-  const [editingPlan, setEditingPlan] = useState<MockPlan | null>(null);
+  const { data: plans = [], isLoading, isError } = usePlans();
+  const createPlan = useCreatePlan();
+  const updatePlan = useUpdatePlan();
+  const discontinuePlan = useDiscontinuePlan();
+
+  const [editingPlan, setEditingPlan] = useState<AdminPlan | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState<PlanFormState>(() => toFormState(null));
-  const [deleteTarget, setDeleteTarget] = useState<MockPlan | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminPlan | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   function showToast(message: string) {
@@ -46,7 +51,7 @@ export function PlansTab() {
     setIsFormOpen(true);
   }
 
-  function openEditForm(plan: MockPlan) {
+  function openEditForm(plan: AdminPlan) {
     setEditingPlan(plan);
     setForm(toFormState(plan));
     setIsFormOpen(true);
@@ -67,38 +72,24 @@ export function PlansTab() {
   function handleSave() {
     const { priceValue, priceUnit } = parsePrice(form.price);
     const features = form.features.map((feature) => feature.trim()).filter((feature) => feature.length > 0);
+    const input = { code: form.code, name: form.name, priceValue, priceUnit, features };
 
     if (editingPlan) {
-      setPlans((prev) =>
-        prev.map((item) =>
-          item.id === editingPlan.id
-            ? { ...item, code: form.code, name: form.name, priceValue, priceUnit, features }
-            : item
-        )
+      updatePlan.mutate(
+        { id: editingPlan.id, input },
+        { onSuccess: () => showToast("Đã lưu gói dịch vụ") }
       );
-      showToast("Đã lưu gói dịch vụ");
     } else {
-      const newPlan: MockPlan = {
-        id: crypto.randomUUID(),
-        code: form.code,
-        name: form.name,
-        priceValue,
-        priceUnit,
-        features,
-        isActive: true,
-      };
-      setPlans((prev) => [...prev, newPlan]);
-      showToast("Đã thêm gói dịch vụ");
+      createPlan.mutate(input, { onSuccess: () => showToast("Đã thêm gói dịch vụ") });
     }
     setIsFormOpen(false);
   }
 
   function handleDiscontinue() {
     if (!deleteTarget) return;
-    setPlans((prev) =>
-      prev.map((item) => (item.id === deleteTarget.id ? { ...item, isActive: false } : item))
-    );
-    showToast(`Đã ngừng cung cấp gói ${deleteTarget.name}`);
+    discontinuePlan.mutate(deleteTarget.id, {
+      onSuccess: () => showToast(`Đã ngừng cung cấp gói ${deleteTarget.name}`),
+    });
     setDeleteTarget(null);
   }
 
@@ -110,6 +101,9 @@ export function PlansTab() {
           Thêm gói
         </button>
       </div>
+
+      {isLoading ? <p className={styles.hint}>Đang tải…</p> : null}
+      {isError ? <p className={styles.fieldError}>Không thể tải gói dịch vụ.</p> : null}
 
       <div className={styles.planGrid}>
         {plans.map((plan) => (
