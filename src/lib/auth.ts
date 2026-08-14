@@ -2,6 +2,8 @@ import { betterAuth } from "better-auth";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
+import { headers } from "next/headers";
+import { isMockMode } from "./env";
 
 /**
  * better-auth owns sessions (httpOnly cookie) and 2FA (TOTP) — see
@@ -33,3 +35,26 @@ export const auth = betterAuth({
     nextCookies(),
   ],
 });
+
+export class AdminSessionError extends Error {
+  constructor() {
+    super("Unauthorized");
+    this.name = "AdminSessionError";
+  }
+}
+
+// Every domain Route Handler calls this before touching the service layer, so an unauthenticated
+// request never reaches real finviet-be data. Skipped in mock mode: the Login screen is still
+// visual-only (not wired to better-auth yet, per context/current-feature.md's history), so no
+// real session exists to check there — enforcing this in mock mode would 401 every Route Handler
+// and make the mock-backed app unusable. Revisit once Login is wired to a real better-auth sign-in.
+export async function requireAdminSession() {
+  if (isMockMode()) {
+    return null;
+  }
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    throw new AdminSessionError();
+  }
+  return session;
+}

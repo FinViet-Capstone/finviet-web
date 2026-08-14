@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Bell, Eye, Send, Users } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
-import { initialAnnouncements, TARGET_AUDIENCE_COUNT, type MockAnnouncement } from "./mock-announcements";
+import { useAnnouncements, useSendAnnouncement } from "@/hooks/useAnnouncements";
 import styles from "./announcements.module.css";
 
 const BODY_MAX_LENGTH = 500;
@@ -18,21 +18,18 @@ function formatCount(count: number): string {
   return count.toLocaleString("vi-VN");
 }
 
-function formatTodayLabel(): string {
-  const today = new Date();
-  const day = String(today.getDate()).padStart(2, "0");
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  return `${day}/${month}/${today.getFullYear()}`;
-}
-
 export default function AnnouncementsPage() {
+  const { data, isLoading, isError } = useAnnouncements();
+  const sendAnnouncement = useSendAnnouncement();
+
   const [title, setTitle] = useState(DEFAULT_TITLE);
   const [body, setBody] = useState(DEFAULT_BODY);
-  const [announcements, setAnnouncements] = useState(initialAnnouncements);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  const announcements = data?.items ?? [];
+  const targetAudienceCount = data?.targetAudienceCount ?? 0;
   const canSend = title.trim().length > 0 && body.trim().length > 0 && body.length <= BODY_MAX_LENGTH;
 
   const counterClassName = useMemo(() => {
@@ -47,18 +44,17 @@ export default function AnnouncementsPage() {
   }
 
   function handleConfirmSend() {
-    const newAnnouncement: MockAnnouncement = {
-      id: crypto.randomUUID(),
-      title: title.trim(),
-      targetLabel: "Tất cả",
-      recipientCount: TARGET_AUDIENCE_COUNT,
-      sentAtLabel: formatTodayLabel(),
-    };
-    setAnnouncements((prev) => [newAnnouncement, ...prev]);
-    setIsConfirmOpen(false);
-    showToast(`Đã gửi thông báo đến ${formatCount(TARGET_AUDIENCE_COUNT)} người dùng`);
-    setTitle("");
-    setBody("");
+    sendAnnouncement.mutate(
+      { title: title.trim(), body: body.trim(), targetSegment: "all" },
+      {
+        onSuccess: () => {
+          setIsConfirmOpen(false);
+          showToast(`Đã gửi thông báo đến ${formatCount(targetAudienceCount)} người dùng`);
+          setTitle("");
+          setBody("");
+        },
+      }
+    );
   }
 
   return (
@@ -142,6 +138,20 @@ export default function AnnouncementsPage() {
               </tr>
             </thead>
             <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={4} className={styles.emptyState}>
+                    Đang tải…
+                  </td>
+                </tr>
+              ) : null}
+              {isError ? (
+                <tr>
+                  <td colSpan={4} className={styles.emptyState}>
+                    Không thể tải lịch sử thông báo.
+                  </td>
+                </tr>
+              ) : null}
               {announcements.map((announcement) => (
                 <tr key={announcement.id} className={styles.row}>
                   <td className={styles.nameCell}>{announcement.title}</td>
@@ -150,7 +160,7 @@ export default function AnnouncementsPage() {
                   <td className={styles.mutedCell}>{announcement.sentAtLabel}</td>
                 </tr>
               ))}
-              {announcements.length === 0 ? (
+              {!isLoading && !isError && announcements.length === 0 ? (
                 <tr>
                   <td colSpan={4} className={styles.emptyState}>
                     Chưa có thông báo nào được gửi.
@@ -196,7 +206,7 @@ export default function AnnouncementsPage() {
       <ConfirmationModal
         isOpen={isConfirmOpen}
         title="Gửi thông báo?"
-        description={`Gửi thông báo này đến ${formatCount(TARGET_AUDIENCE_COUNT)} người dùng? Hành động này không thể hoàn tác.`}
+        description={`Gửi thông báo này đến ${formatCount(targetAudienceCount)} người dùng? Hành động này không thể hoàn tác.`}
         confirmLabel="Gửi"
         variant="destructive"
         onCancel={() => setIsConfirmOpen(false)}

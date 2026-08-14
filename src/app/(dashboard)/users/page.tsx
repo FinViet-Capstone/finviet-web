@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Filter, KeyRound, Lock, Search, Unlock } from "lucide-react";
 import { ConfirmationModal, type ConfirmationModalVariant } from "@/components/confirmation-modal/confirmation-modal";
 import { getPageNumbers } from "@/lib/pagination";
-import { initialCustomers, type MockCustomer } from "./mock-users";
+import { useSetUserActive, useTriggerPasswordReset, useUsers } from "@/hooks/useUsers";
+import type { AdminCustomerSummary } from "@/types/users";
 import styles from "./users.module.css";
 
 type StatusFilter = "all" | "active" | "locked";
@@ -12,7 +13,7 @@ type ModalAction = "lock" | "unlock" | "reset";
 
 interface ModalState {
   action: ModalAction;
-  customer: MockCustomer;
+  customer: AdminCustomerSummary;
 }
 
 const statusFilterOptions: { value: StatusFilter; label: string }[] = [
@@ -48,27 +49,11 @@ const modalCopyByAction: Record<
 const PAGE_SIZE = 10;
 
 export default function UsersPage() {
-  const [customers, setCustomers] = useState(initialCustomers);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [activePage, setActivePage] = useState(1);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-
-  const filteredCustomers = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return customers.filter((customer) => {
-      const matchesQuery =
-        query.length === 0 ||
-        customer.name.toLowerCase().includes(query) ||
-        customer.email.toLowerCase().includes(query);
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" && customer.isActive) ||
-        (statusFilter === "locked" && !customer.isActive);
-      return matchesQuery && matchesStatus;
-    });
-  }, [customers, search, statusFilter]);
 
   // Reset to page 1 whenever the filters change (adjusting state during render
   // instead of an effect, per https://react.dev/learn/you-might-not-need-an-effect).
@@ -78,12 +63,18 @@ export default function UsersPage() {
     setActivePage(1);
   }
 
-  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / PAGE_SIZE));
+  const { data, isLoading, isError } = useUsers({
+    search,
+    status: statusFilter,
+    page: activePage,
+    pageSize: PAGE_SIZE,
+  });
+  const setUserActive = useSetUserActive();
+  const triggerPasswordReset = useTriggerPasswordReset();
+
+  const pagedCustomers = data?.items ?? [];
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
   const clampedPage = Math.min(activePage, totalPages);
-  const pagedCustomers = filteredCustomers.slice(
-    (clampedPage - 1) * PAGE_SIZE,
-    clampedPage * PAGE_SIZE
-  );
   const pageNumbers = getPageNumbers(clampedPage, totalPages);
 
   function showToast(message: string) {
@@ -96,14 +87,21 @@ export default function UsersPage() {
     const { action, customer } = modal;
 
     if (action === "reset") {
-      showToast(`Đã gửi email đặt lại mật khẩu cho ${customer.email}`);
+      triggerPasswordReset.mutate(customer.id, {
+        onSuccess: () => showToast(`Đã gửi email đặt lại mật khẩu cho ${customer.email}`),
+      });
     } else {
       const willBeActive = action === "unlock";
-      setCustomers((prev) =>
-        prev.map((item) => (item.id === customer.id ? { ...item, isActive: willBeActive } : item))
-      );
-      showToast(
-        willBeActive ? `Đã mở khóa tài khoản ${customer.email}` : `Đã khóa tài khoản ${customer.email}`
+      setUserActive.mutate(
+        { id: customer.id, isActive: willBeActive },
+        {
+          onSuccess: () =>
+            showToast(
+              willBeActive
+                ? `Đã mở khóa tài khoản ${customer.email}`
+                : `Đã khóa tài khoản ${customer.email}`
+            ),
+        }
       );
     }
 
@@ -160,58 +158,74 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {pagedCustomers.map((customer) => (
-              <tr key={customer.id} className={styles.row}>
-                <td className={styles.nameCell}>{customer.name}</td>
-                <td className={styles.mutedCell}>{customer.email}</td>
-                <td>
-                  <span className={customer.isActive ? styles.statusActive : styles.statusLocked}>
-                    <span className={styles.statusDot} />
-                    {customer.isActive ? "Hoạt động" : "Khóa"}
-                  </span>
-                </td>
-                <td className={styles.mutedCell}>{customer.createdAt}</td>
-                <td>{customer.totalTransactions}</td>
-                <td>{customer.totalWallets}</td>
-                <td>
-                  <span className={customer.plan === "premium" ? styles.planPremium : styles.planFree}>
-                    {customer.plan === "premium" ? "Premium" : "Free"}
-                  </span>
-                </td>
-                <td>
-                  <div className={styles.actions}>
-                    {customer.isActive ? (
-                      <button
-                        type="button"
-                        className={styles.actionButtonDanger}
-                        aria-label={`Khóa tài khoản ${customer.email}`}
-                        onClick={() => setModal({ action: "lock", customer })}
-                      >
-                        <Lock size={16} strokeWidth={2} />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={styles.actionButtonNeutral}
-                        aria-label={`Mở khóa tài khoản ${customer.email}`}
-                        onClick={() => setModal({ action: "unlock", customer })}
-                      >
-                        <Unlock size={16} strokeWidth={2} />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className={styles.actionButtonNeutral}
-                      aria-label={`Đặt lại mật khẩu cho ${customer.email}`}
-                      onClick={() => setModal({ action: "reset", customer })}
-                    >
-                      <KeyRound size={16} strokeWidth={2} />
-                    </button>
-                  </div>
+            {isLoading ? (
+              <tr>
+                <td colSpan={8} className={styles.emptyState}>
+                  Đang tải…
                 </td>
               </tr>
-            ))}
-            {filteredCustomers.length === 0 ? (
+            ) : null}
+            {isError ? (
+              <tr>
+                <td colSpan={8} className={styles.emptyState}>
+                  Không thể tải danh sách khách hàng.
+                </td>
+              </tr>
+            ) : null}
+            {!isLoading && !isError
+              ? pagedCustomers.map((customer) => (
+                  <tr key={customer.id} className={styles.row}>
+                    <td className={styles.nameCell}>{customer.name}</td>
+                    <td className={styles.mutedCell}>{customer.email}</td>
+                    <td>
+                      <span className={customer.isActive ? styles.statusActive : styles.statusLocked}>
+                        <span className={styles.statusDot} />
+                        {customer.isActive ? "Hoạt động" : "Khóa"}
+                      </span>
+                    </td>
+                    <td className={styles.mutedCell}>{customer.createdAt}</td>
+                    <td>{customer.totalTransactions}</td>
+                    <td>{customer.totalWallets}</td>
+                    <td>
+                      <span className={customer.plan === "premium" ? styles.planPremium : styles.planFree}>
+                        {customer.plan === "premium" ? "Premium" : "Free"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className={styles.actions}>
+                        {customer.isActive ? (
+                          <button
+                            type="button"
+                            className={styles.actionButtonDanger}
+                            aria-label={`Khóa tài khoản ${customer.email}`}
+                            onClick={() => setModal({ action: "lock", customer })}
+                          >
+                            <Lock size={16} strokeWidth={2} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.actionButtonNeutral}
+                            aria-label={`Mở khóa tài khoản ${customer.email}`}
+                            onClick={() => setModal({ action: "unlock", customer })}
+                          >
+                            <Unlock size={16} strokeWidth={2} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className={styles.actionButtonNeutral}
+                          aria-label={`Đặt lại mật khẩu cho ${customer.email}`}
+                          onClick={() => setModal({ action: "reset", customer })}
+                        >
+                          <KeyRound size={16} strokeWidth={2} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              : null}
+            {!isLoading && !isError && pagedCustomers.length === 0 ? (
               <tr>
                 <td colSpan={8} className={styles.emptyState}>
                   Không tìm thấy khách hàng phù hợp.

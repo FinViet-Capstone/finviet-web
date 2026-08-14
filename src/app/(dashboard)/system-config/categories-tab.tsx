@@ -5,31 +5,18 @@ import { Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
 import {
-  bucketLabels,
-  categoryColorOptions,
-  categoryIconOptions,
-  iconForCategory,
-  initialCategories,
-  type CategoryType,
-  type DefaultBucket,
-  type MockCategory,
-} from "./mock-categories";
+  useCategories,
+  useCreateCategory,
+  useDeleteCategory,
+  useUpdateCategory,
+} from "@/hooks/useCategories";
+import type { AdminCategory, CategoryInput, CategoryType, DefaultBucket } from "@/types/categories";
+import { bucketLabels, categoryColorOptions, categoryIconOptions, iconForCategory } from "./category-ui-options";
 import styles from "./system-config.module.css";
 
-interface CategoryFormState {
-  name: string;
-  nameVi: string;
-  nameEn: string;
-  type: CategoryType;
-  defaultBucket: DefaultBucket;
-  isMandatory: boolean;
-  icon: string;
-  customIconDataUrl: string | null;
-  color: string;
-  sortOrder: number;
-}
+type CategoryFormState = CategoryInput;
 
-function toFormState(category: MockCategory | null): CategoryFormState {
+function toFormState(category: AdminCategory | null): CategoryFormState {
   if (category) {
     const { name, nameVi, nameEn, type, defaultBucket, isMandatory, icon, customIconDataUrl, color, sortOrder } =
       category;
@@ -61,11 +48,15 @@ function toFormState(category: MockCategory | null): CategoryFormState {
 }
 
 export function CategoriesTab() {
-  const [categories, setCategories] = useState(initialCategories);
-  const [editingCategory, setEditingCategory] = useState<MockCategory | null>(null);
+  const { data: categories = [], isLoading, isError } = useCategories();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
+
+  const [editingCategory, setEditingCategory] = useState<AdminCategory | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState<CategoryFormState>(() => toFormState(null));
-  const [deleteTarget, setDeleteTarget] = useState<MockCategory | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminCategory | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   function showToast(message: string) {
@@ -79,7 +70,7 @@ export function CategoriesTab() {
     setIsFormOpen(true);
   }
 
-  function openEditForm(category: MockCategory) {
+  function openEditForm(category: AdminCategory) {
     setEditingCategory(category);
     setForm(toFormState(category));
     setIsFormOpen(true);
@@ -95,22 +86,21 @@ export function CategoriesTab() {
 
   function handleSave() {
     if (editingCategory) {
-      setCategories((prev) =>
-        prev.map((item) => (item.id === editingCategory.id ? { ...item, ...form } : item))
+      updateCategory.mutate(
+        { id: editingCategory.id, input: form },
+        { onSuccess: () => showToast("Đã lưu danh mục") }
       );
-      showToast("Đã lưu danh mục");
     } else {
-      const newCategory: MockCategory = { id: crypto.randomUUID(), ...form };
-      setCategories((prev) => [...prev, newCategory]);
-      showToast("Đã thêm danh mục");
+      createCategory.mutate(form, { onSuccess: () => showToast("Đã thêm danh mục") });
     }
     setIsFormOpen(false);
   }
 
   function handleDelete() {
     if (!deleteTarget) return;
-    setCategories((prev) => prev.filter((item) => item.id !== deleteTarget.id));
-    showToast(`Đã xóa danh mục ${deleteTarget.name}`);
+    deleteCategory.mutate(deleteTarget.id, {
+      onSuccess: () => showToast(`Đã xóa danh mục ${deleteTarget.name}`),
+    });
     setDeleteTarget(null);
   }
 
@@ -138,6 +128,20 @@ export function CategoriesTab() {
             </tr>
           </thead>
           <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={8} className={styles.mutedCell}>
+                  Đang tải…
+                </td>
+              </tr>
+            ) : null}
+            {isError ? (
+              <tr>
+                <td colSpan={8} className={styles.mutedCell}>
+                  Không thể tải danh mục.
+                </td>
+              </tr>
+            ) : null}
             {categories.map((category) => {
               const Icon = iconForCategory(category.icon);
               return (

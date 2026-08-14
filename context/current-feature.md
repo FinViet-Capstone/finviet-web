@@ -126,3 +126,40 @@ workflow, before starting work on it.)_
   both category and date range, and paginated the actual filtered result. Extracted the
   page-number-list logic shared with Users into `src/lib/pagination.ts`. Built on branch
   `fix/category-corrections-filters`.
+- 2026-08-14 — **Mock/real API switch + Route Handler migration**: replaced every screen's
+  colocated `mock-*.ts` + local `useState` with a real TanStack Query + Route Handler data layer,
+  per `context/coding-standards.md`'s Data Fetching section, with a seamless mock/real backend
+  switch modeled on `finviet-mobile`'s `USE_MOCK` pattern. Since this app's browser never calls
+  `finviet-be` directly, the switch lives server-side inside each domain's barrel
+  (`src/services/<domain>.ts`, resolving `isMockMode() ? mock : real` per call, not once at
+  module load, since a Route Handler module stays resident across many requests) rather than
+  client-side. Shared infra: `src/lib/env.ts` (`isMockMode()`, env var `USE_MOCK_API`, default
+  mock-on), `src/lib/api-client.ts` (`apiFetch`/`toQueryString`, browser → Route Handler),
+  `src/lib/finviet-api.ts` (`finvietApi`/`unwrap`, scaffolded for when a domain flips real),
+  `src/lib/api-response.ts` (`jsonSuccess`/`jsonError`), `src/services/mock/dev-store.ts`
+  (`globalThis`-backed so mock state survives Fast Refresh) + `delay.ts`, `src/app/providers.tsx`
+  (`QueryClientProvider`, wired into `layout.tsx`), `src/lib/query-keys.ts`,
+  `requireAdminSession()` in `src/lib/auth.ts` (skipped in mock mode — Login isn't wired to
+  better-auth yet, so enforcing it there would 401 every Route Handler). Migrated all 8 domains —
+  Users, Category Corrections, Categories, Buckets, Scoring, Plans, Knowledge Base,
+  Announcements — each getting `src/types/<domain>.ts`, `src/services/mock/<domain>.ts` (stateful,
+  seeded from the old mock data), `src/services/real/<domain>.ts` (stub — throws "not
+  implemented," no `finviet-be` endpoint exists yet for most domains), a barrel, Route Handler(s)
+  with Zod validation, and `src/hooks/use<Domain>.ts` TanStack Query hooks. Fixed two long-standing
+  gaps as a side effect of the migration: Category Correction Log's date-range filter is now
+  genuinely server-side (was previously wired but silently a no-op per the entry above), and its
+  CSV export now hits a dedicated unpaginated endpoint instead of reading the browser's
+  now-paginated cache. Knowledge Base's upload flow was refactored to track the actual `File`
+  object (previously only its name) so a real `FormData` POST could be wired.
+  UI-only presentation constants that never went through the service layer (category/bucket icon
+  and color options) were split into local `*-ui-options.ts` files alongside their tab component.
+  Verified end-to-end in the browser per domain: every read, filter, and mutation exercised
+  against its real Route Handler with network-request confirmation, plus an explicit
+  `USE_MOCK_API=false` check confirming a domain with a stub `real/*.ts` fails cleanly (401/error
+  response, no crash) rather than breaking the app. `npm run build` and `npm run lint` both clean
+  (added an `argsIgnorePattern: "^_"` override to `eslint.config.mjs` for the intentionally-unused
+  params in `real/*.ts` stubs, which must match the mock module's exact type signature). Deferred
+  to a later session: JWT propagation from `src/app/api/admin/login/route.ts` into `finvietApi`
+  (blocks flipping any domain to real), per-domain `USE_MOCK_API` overrides (not needed until the
+  first real endpoint lands), and the `backend-web-todos.md` export itself. Built on branch
+  `feature/mock-real-api-switch`.

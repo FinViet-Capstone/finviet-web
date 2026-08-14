@@ -3,25 +3,23 @@
 import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { FormModal } from "@/components/form-modal/form-modal";
-import { bucketIconOptions, iconForBucket, initialBuckets, type MockBucket } from "./mock-buckets";
+import { useBuckets, useUpdateBucket } from "@/hooks/useBuckets";
+import type { AdminBucket, BucketInput } from "@/types/buckets";
+import { bucketIconOptions, iconForBucket } from "./bucket-ui-options";
 import styles from "./system-config.module.css";
 
-interface BucketFormState {
-  nameVi: string;
-  nameEn: string;
-  color: string;
-  icon: string;
-  sortOrder: number;
-}
+type BucketFormState = BucketInput;
 
-function toFormState(bucket: MockBucket): BucketFormState {
+function toFormState(bucket: AdminBucket): BucketFormState {
   const { nameVi, nameEn, color, icon, sortOrder } = bucket;
   return { nameVi, nameEn, color, icon, sortOrder };
 }
 
 export function BucketsTab() {
-  const [buckets, setBuckets] = useState(initialBuckets);
-  const [editingBucket, setEditingBucket] = useState<MockBucket | null>(null);
+  const { data: buckets = [], isLoading, isError } = useBuckets();
+  const updateBucket = useUpdateBucket();
+
+  const [editingBucket, setEditingBucket] = useState<AdminBucket | null>(null);
   const [form, setForm] = useState<BucketFormState | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -31,7 +29,7 @@ export function BucketsTab() {
     window.setTimeout(() => setToast(null), 3000);
   }
 
-  function openEditForm(bucket: MockBucket) {
+  function openEditForm(bucket: AdminBucket) {
     setEditingBucket(bucket);
     setForm(toFormState(bucket));
     setOrderError(null);
@@ -48,15 +46,24 @@ export function BucketsTab() {
       return;
     }
 
-    setBuckets((prev) => prev.map((item) => (item.id === editingBucket.id ? { ...item, ...form } : item)));
-    showToast("Đã lưu nhóm ngân sách");
-    setEditingBucket(null);
-    setForm(null);
+    updateBucket.mutate(
+      { id: editingBucket.id, input: form },
+      {
+        onSuccess: () => {
+          showToast("Đã lưu nhóm ngân sách");
+          setEditingBucket(null);
+          setForm(null);
+        },
+        onError: (err) => setOrderError(err instanceof Error ? err.message : "Không thể lưu nhóm ngân sách."),
+      }
+    );
   }
 
   return (
     <div className={styles.tabPanel}>
       <div className={styles.bucketList}>
+        {isLoading ? <p className={styles.bucketOrder}>Đang tải…</p> : null}
+        {isError ? <p className={styles.bucketOrder}>Không thể tải nhóm ngân sách.</p> : null}
         {buckets.map((bucket) => {
           const Icon = iconForBucket(bucket.icon);
           return (
