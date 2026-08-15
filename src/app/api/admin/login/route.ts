@@ -19,14 +19,34 @@ interface AdminLoginProfile {
 }
 
 interface AdminLoginData {
-  accessToken: string;
   profile: AdminLoginProfile;
+  accessToken: string;
+  accessTokenExpiry: string; // ISO date string
 }
 
 interface FinvietApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
+}
+
+const ADMIN_JWT_COOKIE = "finviet_admin_jwt";
+
+// A sibling, first-party cookie alongside better-auth's own session cookie — better-auth has no
+// plugin hook for storing an opaque third-party JWT inside its own session record, so this stays
+// separate. Read back by src/lib/finviet-admin-token.ts. See context/current-feature.md's history
+// for why this exists: src/services/real/*.ts needs finviet-be's actual JWT to call finviet-be
+// directly, but better-auth's session cookie never carries it.
+function buildAdminJwtCookie(token: string, maxAgeSeconds: number): string {
+  const parts = [
+    `${ADMIN_JWT_COOKIE}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    `Max-Age=${Math.max(60, maxAgeSeconds)}`,
+    "SameSite=Lax",
+  ];
+  if (process.env.NODE_ENV === "production") parts.push("Secure");
+  return parts.join("; ");
 }
 
 function deriveShadowPassword(adminId: string): string {
@@ -51,6 +71,7 @@ export async function POST(request: Request) {
     );
   }
 
+  let data: AdminLoginData;
   let accessToken: string;
   let profile: AdminLoginProfile;
   try {
@@ -58,8 +79,9 @@ export async function POST(request: Request) {
       `${process.env.FINVIET_API_BASE_URL}/api/auth/admin-login`,
       { username, password },
     );
-    accessToken = res.data.data.accessToken;
-    profile = res.data.data.profile;
+    data = res.data.data;
+    accessToken = data.accessToken;
+    profile = data.profile;
   } catch {
     return NextResponse.json(
       { error: "Invalid username or password" },
@@ -67,8 +89,10 @@ export async function POST(request: Request) {
     );
   }
 
+  const { profile, accessToken, accessTokenExpiry } = data;
   const shadowPassword = deriveShadowPassword(profile.customerId);
 
+  let response: Response;
   // Not using `asResponse: true` here: nextCookies() (registered last in auth.ts's plugin
   // list) already sets the session cookie as a side effect via next/headers when these
   // calls run inside a Route Handler, so the plain parsed result is enough — and it's the
@@ -84,11 +108,13 @@ export async function POST(request: Request) {
     // enumeration — so we can't distinguish them here, and don't need to:
     // a derived-password mismatch on an internal, server-only-generated
     // password should never happen outside of first login or a bug.)
+    response = await auth.api.signInEmail({
     result = await auth.api.signInEmail({
       body: { email: profile.email, password: shadowPassword },
     });
   } catch {
     // First login for this admin — provision the shadow account.
+    response = await auth.api.signUpEmail({
     result = await auth.api.signUpEmail({
       body: {
         email: profile.email,
@@ -98,6 +124,9 @@ export async function POST(request: Request) {
     });
   }
 
+  const maxAgeSeconds = Math.floor((new Date(accessTokenExpiry).getTime() - Date.now()) / 1000);
+  response.headers.append("Set-Cookie", buildAdminJwtCookie(accessToken, maxAgeSeconds));
+  return response;
   // `token` is absent when 2FA is enabled and this login only produced a pending-2FA
   // cookie rather than a full session — nothing to stash the JWT against yet in that case.
   if ("token" in result && result.token) {
