@@ -1,3 +1,5 @@
+"use client";
+
 import styles from "./tab-bar.module.css";
 
 export interface TabBarItem {
@@ -8,20 +10,23 @@ export interface TabBarItem {
 interface TabBarProps {
   tabs: TabBarItem[];
   activeKey: string;
+  onSelect?: (key: string) => void;
 }
 
-export function TabBar({ tabs, activeKey }: TabBarProps) {
+export function TabBar({ tabs, activeKey, onSelect }: TabBarProps) {
   return (
     <div className={styles.tabBar} role="tablist">
       {tabs.map(({ key, label }) => (
-        <div
+        <button
           key={key}
+          type="button"
           role="tab"
           aria-selected={key === activeKey}
           className={key === activeKey ? styles.tabActive : styles.tab}
+          onClick={onSelect ? () => onSelect(key) : undefined}
         >
           {label}
-        </div>
+        </button>
       ))}
     </div>
   );
