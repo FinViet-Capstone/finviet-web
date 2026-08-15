@@ -28,4 +28,8 @@ export const queryKeys = {
   admins: {
     all: () => ["admins"] as const,
   },
+  overview: {
+    summary: () => ["overview", "summary"] as const,
+    trend: (metric: string, days: number) => ["overview", "trend", metric, days] as const,
+  },
 };

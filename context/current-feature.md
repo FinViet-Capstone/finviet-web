@@ -7,6 +7,59 @@ workflow, before starting work on it.)_
 
 <!-- Keep this updated. Earliest to latest -->
 
+- 2026-08-15 — **Overview dashboard wired to real analytics + Knowledge Base delete disabled**:
+  started from a review of the Knowledge Base admin screen (does it let admins actually control
+  AI, should there be a separate "AI" sidebar tab) — conclusion: no new tab needed, since
+  `finviet-be`'s only admin-facing AI surface is RAG document upload/list, already covered by this
+  screen. Two concrete gaps were fixed instead.
+  **Overview** (`/overview`) was the one domain never migrated onto this codebase's mock/real
+  service-layer pattern — every stat/chart value was a hardcoded literal, no type/service/hook/
+  Route Handler existed. Companion backend work in `finviet-be` added `GET /api/analytics/summary`
+  + `GET /api/analytics/trend` (see that repo's `context/current-feature.md`, branch
+  `feature/admin-analytics-endpoint`, committed there). Added the full 7-file domain scaffold
+  (`src/types/overview.ts`, `src/services/{mock,real}/overview.ts` + barrel, `src/hooks/useOverview.ts`,
+  `src/app/api/overview/{summary,trend}/route.ts`, a `queryKeys.overview` entry) matching every
+  other migrated domain's convention, plus a new `src/lib/format-number.ts` (`formatCount`,
+  `Intl.NumberFormat("vi-VN")`) and `src/app/(dashboard)/overview/chart-data.ts` (`toChartPoints`
+  for edge-labeled real dates replacing the old fake "week" labels, `computeTrendLabel` — a
+  genuine first-half-vs-second-half split of the real fetched window, not a fabricated percentage,
+  since the backend has no prior-period baseline to compare against). `page.tsx` converted to
+  `'use client'`, consumes `useAnalyticsSummary()`/`useAnalyticsTrend()`, shows a loading
+  placeholder per stat card and an inline error banner instead of a blank landing page on failure.
+  Free/premium split percentage now computed from real `freeSubscriptions`/`premiumSubscriptions`
+  with a divide-by-zero guard.
+  `npm run build`/`npm run lint`/`npx tsc --noEmit` all clean. **Verified live in the browser, both
+  modes**: mock mode rendered the seeded mock summary/trends with correctly edge-labeled dates and
+  a correct 68%/32% split computed from the mock counts; real mode (pointed at a local `finviet-be`
+  running the new endpoint, logged in as a freshly-created test admin to sidestep an unrelated
+  stale-shadow-account mismatch in the local dev auth DB — see Notes) showed genuinely different,
+  real numbers (4 customers, 394 transactions, 100%/0% free/premium since no paid subscriptions
+  exist locally) with `GET /api/overview/summary` and both `GET /api/overview/trend` calls
+  confirmed 200 in the network tab. Local `.env` was temporarily pointed at `localhost:5122` for
+  this test and restored to its original values (`https://finviet-be-7t8w.onrender.com`) afterward
+  — verify no diff remains there before committing anything.
+  **Knowledge Base delete**: `finviet-be`'s `AdminAiController` has no `DELETE` endpoint for RAG
+  documents at all (not just unwired — it doesn't exist). Per explicit product decision, the
+  delete button in `src/app/(dashboard)/knowledge-base/page.tsx` is now unconditionally disabled
+  with a tooltip, mirroring the file's existing pattern for the preview button (disabled when
+  `status !== "ready"`) — the mutation hook, Route Handler, and mock service's delete
+  implementation are all left intact so mock-mode demo behavior and future re-enablement both
+  still work; only the UI trigger changed. `context/backend-gaps.md` updated.
+  **Notes**: found real, unrelated, pre-existing uncommitted work sitting on `dev` mid-session —
+  a coherent, consistent `isMockMode(domain)` change across every service barrel plus an
+  `admin-login` mock-mode short-circuit, not authored by this session. Left untouched: stashed
+  (not popped) so it doesn't interfere, `git stash list` still has it — **not lost, needs a
+  deliberate `git stash pop` by whoever owns it**, not part of this branch's diff. Separately, a
+  genuine pre-existing bug was found and already fixed upstream before this session started
+  (`admin-login` route's botched two-mechanism JWT merge) — no action needed, just verified clean.
+  Also flagged (not fixed, out of scope): `SubscriptionRenewalScheduler` logs a real
+  `operator does not exist: subscription_status = text` error on every poll against a real
+  Postgres — a Postgres enum/text comparison needing an explicit cast; unrelated to this feature.
+  A throwaway test admin (`overview_test_admin` / `overview-test-admin@finviet.local`) was created
+  on the local `finviet-be` dev database for login verification — `finviet-be` has no
+  delete-admin endpoint yet to clean it up; harmless local dev-only row, flagged here for
+  visibility rather than silently left.
+
 - 2026-08-15 — **Real admin login + 2FA + sign-out**: wired `/login` (previously visual-only, per
   the 2026-08-04 Login screen entry) up to `/api/admin/login` and better-auth's `two-factor`
   plugin for real, plus real sign-out. `/api/admin/login` now returns
