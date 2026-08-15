@@ -1,24 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Landmark } from "lucide-react";
 import { CredentialStep } from "./credential-step";
 import { TotpStep } from "./totp-step";
+import { EnrollStep } from "./enroll-step";
+import { useAdminLogin, useVerifyTotp } from "@/hooks/useAdminLogin";
 import styles from "./login.module.css";
 
-type Step = "credential" | "totp";
+type Step = "credential" | "totp" | "enroll";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("credential");
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [credentialLoading, setCredentialLoading] = useState(false);
   const [credentialError, setCredentialError] = useState(false);
 
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
-  const [totpLoading, setTotpLoading] = useState(false);
   const [totpError, setTotpError] = useState(false);
+  const [enrollData, setEnrollData] = useState<{ totpURI: string; backupCodes: string[] } | null>(null);
+
+  const adminLogin = useAdminLogin();
+  const verifyTotp = useVerifyTotp();
 
   function handleCredentialSubmit() {
     setCredentialError(false);
@@ -28,13 +34,24 @@ export default function LoginPage() {
       return;
     }
 
-    setCredentialLoading(true);
-    setTimeout(() => {
-      setCredentialLoading(false);
-      setDigits(Array(6).fill(""));
-      setTotpError(false);
-      setStep("totp");
-    }, 600);
+    adminLogin.mutate(
+      { username, password },
+      {
+        onSuccess: (result) => {
+          setDigits(Array(6).fill(""));
+          setTotpError(false);
+          if (result.step === "enroll") {
+            setEnrollData({ totpURI: result.totpURI, backupCodes: result.backupCodes });
+            setStep("enroll");
+          } else if (result.step === "totp") {
+            setStep("totp");
+          } else {
+            router.push("/overview");
+          }
+        },
+        onError: () => setCredentialError(true),
+      }
+    );
   }
 
   function handleTotpSubmit() {
@@ -46,10 +63,13 @@ export default function LoginPage() {
       return;
     }
 
-    setTotpLoading(true);
-    setTimeout(() => {
-      setTotpLoading(false);
-    }, 600);
+    verifyTotp.mutate(digits.join(""), {
+      onSuccess: () => router.push("/overview"),
+      onError: () => {
+        setTotpError(true);
+        setDigits(Array(6).fill(""));
+      },
+    });
   }
 
   return (
@@ -65,16 +85,26 @@ export default function LoginPage() {
         <CredentialStep
           username={username}
           password={password}
-          loading={credentialLoading}
+          loading={adminLogin.isPending}
           error={credentialError}
           onUsernameChange={setUsername}
           onPasswordChange={setPassword}
           onSubmit={handleCredentialSubmit}
         />
+      ) : step === "enroll" && enrollData ? (
+        <EnrollStep
+          totpURI={enrollData.totpURI}
+          backupCodes={enrollData.backupCodes}
+          digits={digits}
+          loading={verifyTotp.isPending}
+          error={totpError}
+          onDigitsChange={setDigits}
+          onSubmit={handleTotpSubmit}
+        />
       ) : (
         <TotpStep
           digits={digits}
-          loading={totpLoading}
+          loading={verifyTotp.isPending}
           error={totpError}
           onDigitsChange={setDigits}
           onSubmit={handleTotpSubmit}

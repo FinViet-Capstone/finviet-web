@@ -8,3 +8,5 @@ function impl() {
 
 export const listAdmins: typeof mockAdmins.listAdmins = () => impl().listAdmins();
 export const createAdmin: typeof mockAdmins.createAdmin = (input) => impl().createAdmin(input);
+export const changeAdminPassword: typeof mockAdmins.changeAdminPassword = (input) =>
+  impl().changeAdminPassword(input);

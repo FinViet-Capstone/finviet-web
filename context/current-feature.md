@@ -7,6 +7,94 @@ workflow, before starting work on it.)_
 
 <!-- Keep this updated. Earliest to latest -->
 
+- 2026-08-15 — **Real admin login + 2FA + sign-out**: wired `/login` (previously visual-only, per
+  the 2026-08-04 Login screen entry) up to `/api/admin/login` and better-auth's `two-factor`
+  plugin for real, plus real sign-out. `/api/admin/login` now returns
+  `{step: "enroll", totpURI, backupCodes} | {step: "totp"} | {step: "done"}` instead of proxying
+  better-auth's raw response: on a brand-new shadow account (first-ever login) it calls
+  `auth.api.enableTwoFactor` immediately after `signUpEmail`, using the shadow password the admin
+  never sees (passing the just-created session's own Set-Cookie back in as a `Cookie` header,
+  since `enableTwoFactor` requires an authenticated session) — the client could never call that
+  itself. Returning admins go through `signInEmail`; better-auth's own two-factor plugin downgrades
+  that to a `twoFactorRedirect` pending state once 2FA is enabled, detected by inspecting the
+  cloned response body. New `src/app/login/enroll-step.tsx`: QR code (`qrcode` package,
+  `toDataURL`) + manual-entry secret parsed from the `totpURI`, backup codes list with a copy
+  button, a "saved these" checkbox gating the confirm step, then the same 6-digit input pattern as
+  `totp-step.tsx`. Both the enrollment-confirm step and the steady-state login's TOTP step submit
+  to better-auth's own `/api/auth/two-factor/verify-totp` (already live via the `[...all]` catch-all
+  route) — no custom wrapper endpoint needed there. New `src/hooks/useAdminLogin.ts`
+  (`useAdminLogin`/`useVerifyTotp`). Real sign-out: new `POST /api/admin/logout` clears both
+  better-auth's session cookie (`auth.api.signOut`) and the sibling `finviet_admin_jwt` cookie
+  (which `auth.api.signOut` has no idea exists) in one response; `sidebar.tsx`'s `handleLogout` now
+  awaits it before redirecting.
+  **Bug found and fixed during verification**: `useAdminLogin` initially used the shared
+  `apiFetch` helper, whose global 401 handler (`src/lib/api-client.ts`) treats any 401 as "your
+  session died, redirect to /login" — correct for an already-authenticated call, but wrong for the
+  login endpoint itself returning 401 for ordinary wrong-credentials, since that fired the redirect
+  before the "wrong username or password" banner ever rendered (invisible in the browser — the page
+  just silently reloaded back to itself). Fixed by having `useAdminLogin` call `fetch` directly,
+  bypassing that global handler, matching `useVerifyTotp`'s existing pattern.
+  Verified in the browser (`npm run dev` on a spare port against this worktree specifically, since
+  the harness's named dev-server preview is hard-wired to the primary checkout's directory, which
+  was on unrelated branch state): credential-step renders, and the wrong-credentials path was
+  exercised end-to-end (finviet-be unreachable in this environment → 401 → error banner renders
+  correctly) after the apiFetch fix.
+  **Full success path later verified against the real deployed `finviet-be`** (`https://finviet-be-7t8w.onrender.com`,
+  with a seeded `master` admin) and surfaced two more real bugs, both fixed:
+  1. `emailAndPassword.disableSignUp: true` blocks `auth.api.signUpEmail` even when called
+     server-side, not just the public HTTP endpoint — it's enforced inside the shared endpoint
+     handler both paths funnel through. First-ever login always hit this and silently fell through
+     to a confusing "Email and password sign up is not enabled" error. Fixed by adding the
+     `admin` plugin (`better-auth/plugins/admin`) to `src/lib/auth.ts` and provisioning the shadow
+     account via `auth.api.createUser` instead (the sanctioned bypass for server-side account
+     provisioning outside public self-registration — its own HTTP route stays gated behind a
+     session, so this doesn't reopen public sign-up), followed by a real `signInEmail` call to
+     actually establish the session `createUser` doesn't create by itself. Needed a second
+     `npx @better-auth/cli generate` + migration for the admin plugin's own schema
+     (`user.role/banned/banReason/banExpires`, `session.impersonatedBy`).
+  2. `auth.api.signInEmail({..., asResponse: true})` does not reliably throw on failure — a "no
+     such user" outcome came back as a normal (non-2xx) `Response` rather than a rejected promise,
+     which the original bare try/catch silently treated as a successful login (`step: "done"`) for
+     credentials that had never actually signed in anywhere. Fixed by checking `.ok` on the
+     response explicitly instead of relying on an exception.
+  Re-verified the complete real flow end-to-end in the browser after both fixes, computing actual
+  RFC 6238 TOTP codes from the enrollment secret (not a shortcut): credential login → enrollment
+  screen (real QR + 10 backup codes + acknowledgement checkbox) → entering a freshly-computed
+  6-digit code → redirect to `/overview`; and separately, a returning admin without 2FA confirmed
+  goes straight to a full session (a known limitation, not a bug — `enableTwoFactor` alone doesn't
+  flag the account as 2FA-required, only a confirmed `verifyTOTP` does, so an interrupted
+  enrollment leaves 2FA unenforced until the admin actually finishes it).
+  `npm run build` and `npm run lint` both clean. Not committed/pushed yet.
+
+- 2026-08-15 — **Admin account management + fixed merge conflict**: an admin-created-admin flow
+  (list/create admins at `/admins`, backed by `src/services/admins.ts`) was built independently in
+  two places at once — one session on this same `feature/admin-account-management` branch, another
+  as commit `bb28fe4` — and both landed in the same GitHub merge (PR #1, `feature/vnpay-subscriptions`
+  → `dev`, merge commit `ae927a9`), resolved by accepting both sides instead of picking one. That
+  broke `src/app/api/admin/login/route.ts` (duplicate variable declarations, unreachable code after
+  an early `return`) and left two redundant JWT-propagation mechanisms in `src/lib/auth.ts`: a
+  `session.additionalFields`-based one (dead — nothing outside the broken route used it) alongside
+  the one `bb28fe4`/vnpay-subscriptions already established and wired through the rest of the app
+  (`src/lib/finviet-admin-token.ts`'s `getFinvietAdminToken()`, a sibling `finviet_admin_jwt`
+  cookie). Fixed by keeping the cookie-based mechanism as the single source of truth: rewrote
+  `route.ts` to only set that cookie (no session-field write), removed the dead
+  `getFinvietJwt`/`stashFinvietJwt`/`session.additionalFields` code from `auth.ts`, and repointed
+  `src/services/real/admins.ts` at `getFinvietAdminToken()`. Also added the one piece the merged
+  commit didn't include: real admin change-password — new `POST /api/admin/change-password` Route
+  Handler, `changeAdminPassword` added to the `admins` service barrel (mock + real), and the
+  previously visual-only "Tài khoản của tôi" panel (`account-panel.tsx`) now has a current-password
+  field and actually calls the mutation instead of just closing on save. Companion backend work
+  (`ChangeAdminPasswordCommand`/`Handler` + `POST /api/auth/admin-change-password`,
+  `CreateAdminCommand`/`Handler` + `AdminsController`) implemented independently in `finviet-be` —
+  see that repo's `context/current-feature.md`. Also fixed, while in `finviet-api.ts`: axios rejects
+  on any non-2xx response before a caller's `unwrap()` runs, so a real finviet-be error message
+  (e.g. "Current password is incorrect.") was getting replaced by axios's generic "Request failed
+  with status code 400" — added a response interceptor that re-throws with the real envelope
+  message when present, fixing error display for every `real/*.ts` caller, not just this one.
+  `npm run build` and `npm run lint` both clean. Built in an isolated worktree
+  (`finviet-web-admin-mgmt`) off `origin/dev` rather than the primary checkout, since that was
+  mid-flight on the unrelated `feature/vnpay-subscriptions` work. Not committed/pushed.
+
 - 2026-08-15 — **Plans domain goes real (VNPay subscriptions companion)**: wired the System
   Configuration → Gói dịch vụ (Plans) tab to a real `finviet-be` backend, as the frontend half of
   the new VNPay auto-renewing subscription feature built in `finviet-be` on branch
