@@ -10,6 +10,7 @@ import {
   Wand2,
   BookOpen,
   Megaphone,
+  UserCog,
   ChevronUp,
   LogOut,
   UserCircle,
@@ -24,7 +25,8 @@ export type SidebarItemKey =
   | "system-config"
   | "category-corrections"
   | "knowledge-base"
-  | "announcements";
+  | "announcements"
+  | "admins";
 
 interface SidebarItem {
   key: SidebarItemKey;
@@ -40,6 +42,7 @@ const items: SidebarItem[] = [
   { key: "category-corrections", label: "Sửa danh mục AI", icon: Wand2, href: "/category-corrections" },
   { key: "knowledge-base", label: "Kho tri thức AI", icon: BookOpen, href: "/knowledge-base" },
   { key: "announcements", label: "Thông báo", icon: Megaphone, href: "/announcements" },
+  { key: "admins", label: "Quản trị viên", icon: UserCog, href: "/admins" },
 ];
 
 interface SidebarProps {

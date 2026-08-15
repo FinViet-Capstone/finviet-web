@@ -10,6 +10,7 @@ const activeKeyByPath: Record<string, SidebarItemKey> = {
   "/category-corrections": "category-corrections",
   "/knowledge-base": "knowledge-base",
   "/announcements": "announcements",
+  "/admins": "admins",
 };
 
 export function SidebarNav() {
