@@ -1,4 +1,4 @@
-import type { AdminAccount, CreateAdminInput } from "@/types/admins";
+import type { AdminAccount, AdminChangePasswordInput, CreateAdminInput } from "@/types/admins";
 import { createDevStore } from "./dev-store";
 import { delay } from "./delay";
 
@@ -30,4 +30,14 @@ export async function createAdmin(input: CreateAdminInput): Promise<AdminAccount
   };
   store.set([...admins, created]);
   return created;
+}
+
+// Mock mode has no real password to check against, so "admin123" stands in as the one
+// value that verifies — matching how the mock login screen's demo credentials work.
+export async function changeAdminPassword(input: AdminChangePasswordInput): Promise<string> {
+  await delay();
+  if (input.currentPassword !== "admin123") {
+    throw new Error("Current password is incorrect.");
+  }
+  return "Password changed successfully.";
 }

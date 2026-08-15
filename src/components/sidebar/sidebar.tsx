@@ -55,9 +55,13 @@ export function Sidebar({ activeKey }: SidebarProps) {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  function handleLogout() {
+  async function handleLogout() {
     setIsMenuOpen(false);
-    router.push("/login");
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+    } finally {
+      router.push("/login");
+    }
   }
 
   function handleAccountSaved() {
