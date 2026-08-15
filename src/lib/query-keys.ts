@@ -25,4 +25,7 @@ export const queryKeys = {
   announcements: {
     all: () => ["announcements"] as const,
   },
+  admins: {
+    all: () => ["admins"] as const,
+  },
 };

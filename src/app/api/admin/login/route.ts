@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { createHmac } from "node:crypto";
-import { auth } from "@/lib/auth";
+import { auth, stashFinvietJwt } from "@/lib/auth";
 
 /**
  * finviet-be is the source of truth for "is this username/password
@@ -72,12 +72,16 @@ export async function POST(request: Request) {
   }
 
   let data: AdminLoginData;
+  let accessToken: string;
+  let profile: AdminLoginProfile;
   try {
     const res = await axios.post<FinvietApiResponse<AdminLoginData>>(
       `${process.env.FINVIET_API_BASE_URL}/api/auth/admin-login`,
       { username, password },
     );
     data = res.data.data;
+    accessToken = data.accessToken;
+    profile = data.profile;
   } catch {
     return NextResponse.json(
       { error: "Invalid username or password" },
@@ -89,6 +93,14 @@ export async function POST(request: Request) {
   const shadowPassword = deriveShadowPassword(profile.customerId);
 
   let response: Response;
+  // Not using `asResponse: true` here: nextCookies() (registered last in auth.ts's plugin
+  // list) already sets the session cookie as a side effect via next/headers when these
+  // calls run inside a Route Handler, so the plain parsed result is enough — and it's the
+  // only way to get the new session's own token back, needed below to stash the
+  // finviet-be JWT against the right row.
+  let result:
+    | Awaited<ReturnType<typeof auth.api.signInEmail>>
+    | Awaited<ReturnType<typeof auth.api.signUpEmail>>;
   try {
     // Existing shadow account — normal login. (better-auth's signInEmail
     // returns the same generic "invalid email or password" error for both
@@ -97,22 +109,29 @@ export async function POST(request: Request) {
     // a derived-password mismatch on an internal, server-only-generated
     // password should never happen outside of first login or a bug.)
     response = await auth.api.signInEmail({
+    result = await auth.api.signInEmail({
       body: { email: profile.email, password: shadowPassword },
-      asResponse: true,
     });
   } catch {
     // First login for this admin — provision the shadow account.
     response = await auth.api.signUpEmail({
+    result = await auth.api.signUpEmail({
       body: {
         email: profile.email,
         name: profile.fullName,
         password: shadowPassword,
       },
-      asResponse: true,
     });
   }
 
   const maxAgeSeconds = Math.floor((new Date(accessTokenExpiry).getTime() - Date.now()) / 1000);
   response.headers.append("Set-Cookie", buildAdminJwtCookie(accessToken, maxAgeSeconds));
   return response;
+  // `token` is absent when 2FA is enabled and this login only produced a pending-2FA
+  // cookie rather than a full session — nothing to stash the JWT against yet in that case.
+  if ("token" in result && result.token) {
+    await stashFinvietJwt(result.token, accessToken);
+  }
+
+  return NextResponse.json(result);
 }
