@@ -2,39 +2,27 @@
 
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { edgeAwareTick } from "./edge-aware-tick";
+import { toChartPoints } from "./chart-data";
+import type { DailyMetric } from "@/types/overview";
 
-const data = [
-  { week: "16 tuần trước", value: 90 },
-  { week: "", value: 140 },
-  { week: "", value: 110 },
-  { week: "", value: 190 },
-  { week: "", value: 160 },
-  { week: "", value: 210 },
-  { week: "", value: 175 },
-  { week: "", value: 260 },
-  { week: "", value: 230 },
-  { week: "", value: 300 },
-  { week: "", value: 250 },
-  { week: "", value: 340 },
-  { week: "", value: 300 },
-  { week: "", value: 380 },
-  { week: "", value: 350 },
-  { week: "", value: 400 },
-  { week: "Tuần này", value: 430 },
-];
+interface TransactionsChartProps {
+  data: DailyMetric[];
+}
 
-export function TransactionsChart() {
+export function TransactionsChart({ data }: TransactionsChartProps) {
+  const points = toChartPoints(data);
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+      <BarChart data={points} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
         <XAxis
-          dataKey="week"
+          dataKey="label"
           tickLine={false}
           axisLine={false}
-          tick={edgeAwareTick(data.length)}
+          tick={edgeAwareTick(points.length)}
           interval={0}
         />
         <Tooltip
+          labelFormatter={(_, payload) => payload?.[0]?.payload?.fullDate ?? ""}
           formatter={(value) => [String(value), "Giao dịch"] as [string, string]}
           contentStyle={{ borderRadius: 8, borderColor: "#e2e8f0", fontSize: 13 }}
         />

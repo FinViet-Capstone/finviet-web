@@ -49,6 +49,17 @@ mock/upload flow. The real `RagDocument` entity already has a `Uri` field for th
 `POST /api/ai/documents` and a documents-list endpoint back this screen for real, the preview
 should open/embed that `Uri` instead of the metadata-only placeholder.
 
+## Knowledge Base delete has no backend endpoint
+
+The Knowledge Base table's `Xóa` (delete) action is disabled in the UI (with a tooltip) since
+`finviet-be`'s `AdminAiController` only exposes `POST`/`GET /api/ai/documents` — no `DELETE`. The
+mutation hook (`useDeleteDocument`), its Route Handler
+(`src/app/api/knowledge-base/documents/[id]/route.ts`), and the mock service's delete
+implementation are all still intact so mock-mode demo behavior keeps working and re-enabling the
+button is a one-line change once a real `DELETE /api/ai/documents/{id}` exists. Needs: a `DELETE`
+action on `AdminAiController` (Admin role) that removes the `RagDocument` row (and its `RagChunk`
+rows / uploaded file) — no CQRS command exists for this today.
+
 ## Category Correction Log date-range filter has nothing to filter
 
 The "7/30/90 ngày qua" date-range select on `/category-corrections` doesn't do anything today —

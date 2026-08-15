@@ -186,7 +186,8 @@ export default function KnowledgeBasePage() {
                       type="button"
                       className={styles.deleteButton}
                       aria-label={`Xóa tài liệu ${document.title}`}
-                      onClick={() => setDeleteTarget(document)}
+                      title="Xóa tài liệu chưa được backend hỗ trợ"
+                      disabled
                     >
                       <Trash2 size={16} strokeWidth={2} />
                     </button>

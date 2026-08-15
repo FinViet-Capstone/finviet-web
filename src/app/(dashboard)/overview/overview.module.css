@@ -41,6 +41,23 @@
   user-select: none;
 }
 
+.chartPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 220px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.errorBanner {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-destructive) 10%, transparent);
+  color: var(--color-destructive);
+  font-size: 14px;
+}
+
 .chartTitle {
   font-size: 16px;
   font-weight: 700;
