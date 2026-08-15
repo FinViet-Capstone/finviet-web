@@ -184,6 +184,12 @@
   background: color-mix(in srgb, var(--color-destructive) 10%, transparent);
 }
 
+.deleteButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+}
+
 .previewCard {
   display: flex;
   align-items: center;
