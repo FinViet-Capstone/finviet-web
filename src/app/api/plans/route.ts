@@ -6,8 +6,8 @@ import { createPlan, listPlans } from "@/services/plans";
 const PlanInputSchema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
-  priceValue: z.string().min(1),
-  priceUnit: z.string(),
+  price: z.number().nonnegative(),
+  billingIntervalMonths: z.number().int().positive(),
   features: z.array(z.string().min(1)),
 });
 

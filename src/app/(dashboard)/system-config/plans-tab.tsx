@@ -5,6 +5,7 @@ import { Ban, Check, Pencil, Plus, X } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
 import { useCreatePlan, useDiscontinuePlan, usePlans, useUpdatePlan } from "@/hooks/usePlans";
+import { formatBillingInterval, formatVnd } from "@/lib/currency";
 import type { AdminPlan } from "@/types/plans";
 import styles from "./system-config.module.css";
 
@@ -12,20 +13,21 @@ interface PlanFormState {
   code: string;
   name: string;
   price: string;
+  billingIntervalMonths: number;
   features: string[];
 }
 
 function toFormState(plan: AdminPlan | null): PlanFormState {
   if (plan) {
-    const price = plan.priceUnit ? `${plan.priceValue} ${plan.priceUnit}` : plan.priceValue;
-    return { code: plan.code, name: plan.name, price, features: [...plan.features] };
+    return {
+      code: plan.code,
+      name: plan.name,
+      price: String(plan.price),
+      billingIntervalMonths: plan.billingIntervalMonths,
+      features: [...plan.features],
+    };
   }
-  return { code: "", name: "", price: "", features: [""] };
-}
-
-function parsePrice(price: string): { priceValue: string; priceUnit: string } {
-  const [priceValue, ...rest] = price.trim().split(/\s+/);
-  return { priceValue: priceValue ?? "", priceUnit: rest.join(" ") };
+  return { code: "", name: "", price: "", billingIntervalMonths: 1, features: [""] };
 }
 
 export function PlansTab() {
@@ -70,9 +72,14 @@ export function PlansTab() {
   }
 
   function handleSave() {
-    const { priceValue, priceUnit } = parsePrice(form.price);
     const features = form.features.map((feature) => feature.trim()).filter((feature) => feature.length > 0);
-    const input = { code: form.code, name: form.name, priceValue, priceUnit, features };
+    const input = {
+      code: form.code,
+      name: form.name,
+      price: Number(form.price) || 0,
+      billingIntervalMonths: form.billingIntervalMonths,
+      features,
+    };
 
     if (editingPlan) {
       updatePlan.mutate(
@@ -146,8 +153,10 @@ export function PlansTab() {
             </div>
 
             <div className={styles.planPrice}>
-              <span className={styles.planPriceValue}>{plan.priceValue}</span>
-              {plan.priceUnit ? <span className={styles.planPriceUnit}>{plan.priceUnit}</span> : null}
+              <span className={styles.planPriceValue}>{formatVnd(plan.price)}</span>
+              {plan.price > 0 ? (
+                <span className={styles.planPriceUnit}>{formatBillingInterval(plan.billingIntervalMonths)}</span>
+              ) : null}
             </div>
 
             <div className={styles.planFeatureList}>
@@ -196,14 +205,29 @@ export function PlansTab() {
             />
           </label>
           <label className={styles.field}>
-            <span className={styles.label}>Giá</span>
+            <span className={styles.label}>Giá (VNĐ)</span>
             <input
-              type="text"
+              type="number"
+              min={0}
+              step={1000}
               className={styles.input}
               value={form.price}
-              placeholder="490.000đ / năm"
+              placeholder="490000"
               onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
             />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>Chu kỳ thanh toán</span>
+            <select
+              className={styles.input}
+              value={form.billingIntervalMonths}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, billingIntervalMonths: Number(event.target.value) }))
+              }
+            >
+              <option value={1}>Hàng tháng</option>
+              <option value={12}>Hàng năm</option>
+            </select>
           </label>
           <div className={styles.field}>
             <span className={styles.label}>Tính năng</span>

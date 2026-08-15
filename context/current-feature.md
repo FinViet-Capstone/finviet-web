@@ -7,6 +7,33 @@ workflow, before starting work on it.)_
 
 <!-- Keep this updated. Earliest to latest -->
 
+- 2026-08-15 — **Plans domain goes real (VNPay subscriptions companion)**: wired the System
+  Configuration → Gói dịch vụ (Plans) tab to a real `finviet-be` backend, as the frontend half of
+  the new VNPay auto-renewing subscription feature built in `finviet-be` on branch
+  `feature/vnpay-subscriptions`. Solved the JWT-propagation blocker flagged in the mock/real-API-
+  switch entry below: `src/app/api/admin/login/route.ts` now sets a sibling httpOnly
+  `finviet_admin_jwt` cookie (separate from better-auth's own session cookie, which has no hook
+  for storing an opaque third-party JWT) alongside the existing better-auth sign-in/sign-up
+  response; new `src/lib/finviet-admin-token.ts` (`getFinvietAdminToken()`) reads it back per-call
+  for `src/services/real/*.ts`; `src/lib/api-client.ts`'s `apiFetch` now redirects to `/login` on
+  any 401 (the two cookies have different lifetimes, so this can fire even with a valid
+  better-auth session). Replaced `AdminPlan`/`PlanInput`'s fragile `priceValue`/`priceUnit`
+  string pair (flagged in an earlier code review — parsed via naive whitespace-splitting) with a
+  numeric `price` + `billingIntervalMonths`, matching the real backend's `decimal`/`smallint`
+  columns; added `src/lib/currency.ts` (`formatVnd`/`formatBillingInterval`) for display-only
+  formatting, updated the Route Handler Zod schemas, and replaced the Plans tab's free-text price
+  field with a numeric input + a Tháng/Năm select (`parsePrice()` deleted entirely). Wired
+  `src/services/real/plans.ts` — this codebase's first genuinely-implemented `real/*.ts` module,
+  every other domain is still a stub — to `GET/POST/PATCH /api/admin/subscription-plans[...]`.
+  Verified in the browser against mock mode (`USE_MOCK_API` still default-on): create, edit
+  (price+interval round-trip confirmed via actual network payloads, not just UI), and discontinue
+  all work correctly with the new numeric shape. `npm run build` and `npm run lint` both clean (one
+  necessary `eslint-disable` on the 401 redirect's `window.location.href`, since that's a plain
+  utility function outside any component/hook, and a hard reload is actually wanted there to clear
+  client state). Companion backend work (migration, `LockedPrice` snapshot guarantee, VNPay
+  client, CQRS, renewal job) implemented independently in `finviet-be` — see that repo's
+  `context/current-feature.md`. Not committed/pushed/merged in either repo.
+
 - 2026-08-04 — **Design system tokens + shared components**: replaced globals.css's
   create-next-app defaults with the light-theme tokens from the Pencil design briefs
   (base colors, status colors, radii; dark-mode block removed). Built the 5 shared
