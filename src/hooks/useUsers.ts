@@ -25,8 +25,11 @@ export function useSetUserActive() {
 export function useTriggerPasswordReset() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiFetch<{ sent: boolean }>(`/api/users/${id}/reset-password`, { method: "POST" }),
+    mutationFn: ({ id, email }: { id: string; email: string }) =>
+      apiFetch<{ sent: boolean }>(`/api/users/${id}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.users.all() }),
   });
 }

@@ -87,9 +87,10 @@ export default function UsersPage() {
     const { action, customer } = modal;
 
     if (action === "reset") {
-      triggerPasswordReset.mutate(customer.id, {
-        onSuccess: () => showToast(`Đã gửi email đặt lại mật khẩu cho ${customer.email}`),
-      });
+      triggerPasswordReset.mutate(
+        { id: customer.id, email: customer.email },
+        { onSuccess: () => showToast(`Đã gửi email đặt lại mật khẩu cho ${customer.email}`) }
+      );
     } else {
       const willBeActive = action === "unlock";
       setUserActive.mutate(
