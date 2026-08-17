@@ -89,7 +89,10 @@ export default function UsersPage() {
     if (action === "reset") {
       triggerPasswordReset.mutate(
         { id: customer.id, email: customer.email },
-        { onSuccess: () => showToast(`Đã gửi email đặt lại mật khẩu cho ${customer.email}`) }
+        {
+          onSuccess: () => showToast(`Đã gửi email đặt lại mật khẩu cho ${customer.email}`),
+          onError: (err) => showToast(err instanceof Error ? err.message : "Không thể gửi email đặt lại mật khẩu."),
+        }
       );
     } else {
       const willBeActive = action === "unlock";
@@ -101,6 +104,14 @@ export default function UsersPage() {
               willBeActive
                 ? `Đã mở khóa tài khoản ${customer.email}`
                 : `Đã khóa tài khoản ${customer.email}`
+            ),
+          onError: (err) =>
+            showToast(
+              err instanceof Error
+                ? err.message
+                : willBeActive
+                  ? "Không thể mở khóa tài khoản."
+                  : "Không thể khóa tài khoản."
             ),
         }
       );

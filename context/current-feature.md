@@ -1,7 +1,51 @@
 # Current Feature
 
-_(None right now — document the next feature/fix here, per `context/ai-interaction.md`'s
-workflow, before starting work on it.)_
+**Fix silent-failure bug on category creation + comprehensive error-handling audit.** Reported:
+creating a category in the deployed admin (now pointed at real `finviet-be`, following the
+2026-08-17 wiring pass below) fails with a 400 and no visible feedback. Root cause:
+`categories-tab.tsx`'s `handleSave` had no client-side required-field validation and no
+`onError` handler on the `createCategory`/`updateCategory` mutations, and unconditionally called
+`setIsFormOpen(false)` right after firing the mutation regardless of outcome — so any rejection
+(empty name, duplicate name, missing bucket for an expense category, etc.) closed the modal with
+zero feedback. Auditing every other CRUD tab for the same pattern found it repeated in
+`plans-tab.tsx` (identical shape) and a related gap in `users/page.tsx` (no `onError` on
+`setUserActive`/`triggerPasswordReset` — meaning "Mở khóa" now *always* silently fails post the
+2026-08-17 wiring pass, since finviet-be has no reactivation endpoint, but nothing told the admin
+why) and `announcements/page.tsx` (`sendAnnouncement` had no `onError` either, though at least it
+didn't close the confirm modal on failure). `buckets-tab.tsx` and `scoring-tab.tsx` already had
+correct `onError` handling — used as the reference pattern for the fixes below.
+Also investigated the second report — "dashboard chart still shows something when there's no
+transaction/user data" — by pulling live `/api/analytics/summary` and `/api/analytics/trend`
+data directly and reading `AnalyticsController`'s handlers: the underlying data and day-bucketing
+logic are correct (zero-filled per day, no phantom values). Added an explicit empty-state message
+on the Overview trend charts for the genuinely-zero case (a metric's 30-day sum is 0) instead of
+rendering an all-zero chart, since a flat/empty-looking chart with no data at all reads as broken.
+**Follow-up screenshot from the same report showed the real bug**: hovering anywhere on either
+trend chart popped a tooltip for a fixed, wrong date/value (e.g. "20/07/2026, Người dùng mới: 0")
+regardless of cursor x-position, including directly over a visible spike. Root cause in
+`chart-data.ts`'s `toChartPoints`: the edge-labeling design (only the first/last day get visible
+x-axis text) blanked `label` to `""` for every other point — but `label` doubles as
+`<XAxis dataKey="label">` in `signups-chart.tsx`/`transactions-chart.tsx`, and recharts uses that
+field's *value* to resolve hover position on a category axis. With ~28 of 30 points sharing the
+same `""` category, recharts collapsed them into one band and always resolved hover/tooltip to
+whichever point matched first — the second data point, the earliest one with a blank label —
+independent of actual cursor position. Fixed by decoupling the two concerns: `toChartPoints` now
+gives every point a real, unique `label` (its short date — safe since no two dates collide inside
+a ≤365-day contiguous window), and `edge-aware-tick.tsx`'s `EdgeAwareTick` decides what to
+*render* (blank vs. text) purely from tick `index`, independent of the label value itself.
+Also fixed while auditing every CRUD tab for the "does a failed mutation give feedback" question
+this category bug raised: `categories-tab.tsx`'s `handleSave` had no client-side required-field
+validation and no `onError` on `createCategory`/`updateCategory`, and unconditionally closed the
+modal right after firing the mutation regardless of outcome — so a rejection (empty name,
+duplicate name, missing bucket for an expense category, etc.) closed the modal with zero
+feedback, reproduced live against real `finviet-be` (`POST /api/categories` with an empty name →
+`"Category name is required."`, silently swallowed by the old code). The identical pattern
+existed in `plans-tab.tsx`. Two related gaps surfaced too: `users/page.tsx` had no `onError` on
+`setUserActive`/`triggerPasswordReset` — meaning "Mở khóa" now *always* silently fails since the
+2026-08-17 wiring pass made finviet-be's missing reactivation endpoint throw, but nothing told
+the admin why — and `announcements/page.tsx`'s `sendAnnouncement` had no `onError` either (though
+it at least didn't close the confirm modal on failure). `buckets-tab.tsx`/`scoring-tab.tsx`
+already had correct `onError` handling, used as the reference pattern for all of the above.
 
 ## History
 
