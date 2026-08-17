@@ -86,6 +86,11 @@
   color: var(--color-destructive);
 }
 
+.fieldError {
+  font-size: 13px;
+  color: var(--color-destructive);
+}
+
 .targetGroup {
   display: flex;
   flex-wrap: wrap;

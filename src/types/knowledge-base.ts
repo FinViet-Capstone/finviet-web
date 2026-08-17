@@ -11,4 +11,5 @@ export interface AdminDocument {
 export interface DocumentUploadInput {
   title: string;
   fileName: string;
+  file: File;
 }

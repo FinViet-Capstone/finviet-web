@@ -41,6 +41,7 @@ export function PlansTab() {
   const [form, setForm] = useState<PlanFormState>(() => toFormState(null));
   const [deleteTarget, setDeleteTarget] = useState<AdminPlan | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function showToast(message: string) {
     setToast(message);
@@ -50,12 +51,14 @@ export function PlansTab() {
   function openAddForm() {
     setEditingPlan(null);
     setForm(toFormState(null));
+    setFormError(null);
     setIsFormOpen(true);
   }
 
   function openEditForm(plan: AdminPlan) {
     setEditingPlan(plan);
     setForm(toFormState(plan));
+    setFormError(null);
     setIsFormOpen(true);
   }
 
@@ -72,6 +75,16 @@ export function PlansTab() {
   }
 
   function handleSave() {
+    if (!form.code.trim() || !form.name.trim()) {
+      setFormError("Vui lòng nhập mã và tên gói.");
+      return;
+    }
+    if (!form.price.trim() || Number(form.price) < 0) {
+      setFormError("Vui lòng nhập giá hợp lệ.");
+      return;
+    }
+
+    setFormError(null);
     const features = form.features.map((feature) => feature.trim()).filter((feature) => feature.length > 0);
     const input = {
       code: form.code,
@@ -80,22 +93,36 @@ export function PlansTab() {
       billingIntervalMonths: form.billingIntervalMonths,
       features,
     };
+    const onError = (err: unknown) =>
+      setFormError(err instanceof Error ? err.message : "Không thể lưu gói dịch vụ.");
 
     if (editingPlan) {
       updatePlan.mutate(
         { id: editingPlan.id, input },
-        { onSuccess: () => showToast("Đã lưu gói dịch vụ") }
+        {
+          onSuccess: () => {
+            showToast("Đã lưu gói dịch vụ");
+            setIsFormOpen(false);
+          },
+          onError,
+        }
       );
     } else {
-      createPlan.mutate(input, { onSuccess: () => showToast("Đã thêm gói dịch vụ") });
+      createPlan.mutate(input, {
+        onSuccess: () => {
+          showToast("Đã thêm gói dịch vụ");
+          setIsFormOpen(false);
+        },
+        onError,
+      });
     }
-    setIsFormOpen(false);
   }
 
   function handleDiscontinue() {
     if (!deleteTarget) return;
     discontinuePlan.mutate(deleteTarget.id, {
       onSuccess: () => showToast(`Đã ngừng cung cấp gói ${deleteTarget.name}`),
+      onError: (err) => showToast(err instanceof Error ? err.message : "Không thể ngừng cung cấp gói."),
     });
     setDeleteTarget(null);
   }
@@ -174,10 +201,20 @@ export function PlansTab() {
       {isFormOpen ? (
         <FormModal
           title={editingPlan ? "Sửa gói" : "Thêm gói"}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            setIsFormOpen(false);
+            setFormError(null);
+          }}
           footer={
             <>
-              <button type="button" className={styles.cancelButton} onClick={() => setIsFormOpen(false)}>
+              <button
+                type="button"
+                className={styles.cancelButton}
+                onClick={() => {
+                  setIsFormOpen(false);
+                  setFormError(null);
+                }}
+              >
                 Hủy
               </button>
               <button type="button" className={styles.confirmButton} onClick={handleSave}>
@@ -186,6 +223,7 @@ export function PlansTab() {
             </>
           }
         >
+          {formError ? <p className={styles.fieldError}>{formError}</p> : null}
           <label className={styles.field}>
             <span className={styles.label}>Mã gói</span>
             <input

@@ -1,7 +1,16 @@
 // Domains whose src/services/real/*.ts is an actual finviet-be implementation today. Every other
 // domain's real/*.ts is an intentional "not implemented" stub, so it must always fall back to
 // mock regardless of the global USE_MOCK_API flag — there's no real endpoint to call yet.
-const REAL_BACKED_DOMAINS = new Set(["overview", "plans", "admins"]);
+const REAL_BACKED_DOMAINS = new Set([
+  "overview",
+  "plans",
+  "admins",
+  "buckets",
+  "categories",
+  "knowledge-base",
+  "scoring",
+  "users",
+]);
 
 export type Domain =
   | "admins"

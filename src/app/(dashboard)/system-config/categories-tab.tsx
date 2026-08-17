@@ -58,6 +58,7 @@ export function CategoriesTab() {
   const [form, setForm] = useState<CategoryFormState>(() => toFormState(null));
   const [deleteTarget, setDeleteTarget] = useState<AdminCategory | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function showToast(message: string) {
     setToast(message);
@@ -67,12 +68,14 @@ export function CategoriesTab() {
   function openAddForm() {
     setEditingCategory(null);
     setForm(toFormState(null));
+    setFormError(null);
     setIsFormOpen(true);
   }
 
   function openEditForm(category: AdminCategory) {
     setEditingCategory(category);
     setForm(toFormState(category));
+    setFormError(null);
     setIsFormOpen(true);
   }
 
@@ -85,21 +88,46 @@ export function CategoriesTab() {
   }
 
   function handleSave() {
+    if (!form.name.trim() || !form.nameVi.trim() || !form.nameEn.trim()) {
+      setFormError("Vui lòng nhập đầy đủ tên danh mục.");
+      return;
+    }
+    if (form.type === "expense" && !form.defaultBucket) {
+      setFormError("Danh mục chi tiêu cần chọn bucket mặc định.");
+      return;
+    }
+
+    setFormError(null);
+    const onError = (err: unknown) =>
+      setFormError(err instanceof Error ? err.message : "Không thể lưu danh mục.");
+
     if (editingCategory) {
       updateCategory.mutate(
         { id: editingCategory.id, input: form },
-        { onSuccess: () => showToast("Đã lưu danh mục") }
+        {
+          onSuccess: () => {
+            showToast("Đã lưu danh mục");
+            setIsFormOpen(false);
+          },
+          onError,
+        }
       );
     } else {
-      createCategory.mutate(form, { onSuccess: () => showToast("Đã thêm danh mục") });
+      createCategory.mutate(form, {
+        onSuccess: () => {
+          showToast("Đã thêm danh mục");
+          setIsFormOpen(false);
+        },
+        onError,
+      });
     }
-    setIsFormOpen(false);
   }
 
   function handleDelete() {
     if (!deleteTarget) return;
     deleteCategory.mutate(deleteTarget.id, {
       onSuccess: () => showToast(`Đã xóa danh mục ${deleteTarget.name}`),
+      onError: (err) => showToast(err instanceof Error ? err.message : "Không thể xóa danh mục."),
     });
     setDeleteTarget(null);
   }
@@ -206,10 +234,20 @@ export function CategoriesTab() {
       {isFormOpen ? (
         <FormModal
           title={editingCategory ? "Sửa danh mục" : "Thêm danh mục"}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            setIsFormOpen(false);
+            setFormError(null);
+          }}
           footer={
             <>
-              <button type="button" className={styles.cancelButton} onClick={() => setIsFormOpen(false)}>
+              <button
+                type="button"
+                className={styles.cancelButton}
+                onClick={() => {
+                  setIsFormOpen(false);
+                  setFormError(null);
+                }}
+              >
                 Hủy
               </button>
               <button type="button" className={styles.confirmButton} onClick={handleSave}>
@@ -218,6 +256,7 @@ export function CategoriesTab() {
             </>
           }
         >
+          {formError ? <p className={styles.fieldError}>{formError}</p> : null}
           <label className={styles.field}>
             <span className={styles.label}>Tên danh mục</span>
             <input
