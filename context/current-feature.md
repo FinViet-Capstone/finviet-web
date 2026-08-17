@@ -1,7 +1,26 @@
 # Current Feature
 
-_(None right now — document the next feature/fix here, per `context/ai-interaction.md`'s
-workflow, before starting work on it.)_
+**Fix: sidebar/account panel show hardcoded "Admin" / "admin@finviet.vn" for every admin**
+
+Found via screenshot: the sidebar's account button and the "Tài khoản của tôi" panel both
+literally hardcode `"Admin"` / `"admin@finviet.vn"` as `useState` initial values
+(`src/components/sidebar/sidebar.tsx`, `src/components/sidebar/account-panel.tsx`) — a leftover
+from the 2026-08-05 pass that built the account panel as visual-only mock, never reconnected once
+real login/session landed. Every logged-in admin sees the same placeholder regardless of who they
+actually are.
+
+Fix: better-auth's own `user` table already has the real name/email (set at account provisioning
+in `src/app/api/admin/login/route.ts`'s `auth.api.createUser` call). New
+`src/hooks/useAdminSession.ts` calls better-auth's own `GET /api/auth/get-session` directly (no
+finviet-be logic needed, matching the pattern already used by `useVerifyTotp`/
+`useVerifyBackupCode`), returning `{name, email} | null`. `Sidebar` fetches it once and passes
+down to `AccountPanel` as props (avoiding a duplicate fetch), replacing both hardcoded literals
+and the hardcoded "AD" avatar initials (now derived from the real name). Falls back to a generic
+placeholder when session is null (mock mode, where login is still visual-only per
+`requireAdminSession()`'s own doc comment) so mock-mode demo usage doesn't break.
+Not in scope: `AccountPanel`'s name/email fields were already presentation-only before this fix
+(only the password-change mutation is wired) — fixing their *initial values* doesn't change that
+pre-existing, separate gap.
 
 ## History
 

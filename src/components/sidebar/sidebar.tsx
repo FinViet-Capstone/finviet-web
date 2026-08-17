@@ -17,7 +17,18 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { AccountPanel } from "./account-panel";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import styles from "./sidebar.module.css";
+
+const PLACEHOLDER_NAME = "Quản trị viên";
+const PLACEHOLDER_EMAIL = "—";
+
+function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "??";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
 
 export type SidebarItemKey =
   | "overview"
@@ -54,6 +65,9 @@ export function Sidebar({ activeKey }: SidebarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const { data: session } = useAdminSession();
+  const name = session?.name || PLACEHOLDER_NAME;
+  const email = session?.email || PLACEHOLDER_EMAIL;
 
   async function handleLogout() {
     setIsMenuOpen(false);
@@ -114,17 +128,22 @@ export function Sidebar({ activeKey }: SidebarProps) {
           aria-haspopup="menu"
           aria-expanded={isMenuOpen}
         >
-          <span className={styles.avatar}>AD</span>
+          <span className={styles.avatar}>{getInitials(name)}</span>
           <span className={styles.accountInfo}>
-            <span className={styles.accountName}>Admin</span>
-            <span className={styles.accountEmail}>admin@finviet.vn</span>
+            <span className={styles.accountName}>{name}</span>
+            <span className={styles.accountEmail}>{email}</span>
           </span>
           <ChevronUp size={16} strokeWidth={2} className={isMenuOpen ? styles.chevronOpen : styles.chevron} />
         </button>
       </div>
 
       {isAccountOpen ? (
-        <AccountPanel onClose={() => setIsAccountOpen(false)} onSaved={handleAccountSaved} />
+        <AccountPanel
+          name={name}
+          email={email}
+          onClose={() => setIsAccountOpen(false)}
+          onSaved={handleAccountSaved}
+        />
       ) : null}
 
       {toast ? <div className={styles.toast}>{toast}</div> : null}
