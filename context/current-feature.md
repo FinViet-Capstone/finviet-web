@@ -1,136 +1,11 @@
 # Current Feature
 
-**Fix generic "Validation failed." error messages losing the actual reason.** Reported: creating
-a new admin at `/admins` always shows a useless "Validation failed." toast no matter what's
-wrong, and the request 400s. Reproduced live against `POST /api/admins` with a weak password —
-finviet-be's FluentValidation failures (`CreateAdminCommandValidator`, likely others) return a
-generic top-level `message: "Validation failed."` while the actual per-field reasons live in a
-separate `errors` object (ASP.NET's shape: `{ FieldName: string[] }`), e.g.
-`{"message":"Validation failed.","errors":{"Password":["Password must contain at least one
-uppercase letter.","Password must contain at least one digit."]}}`. `finvietApi`'s response
-interceptor (`src/lib/finviet-api.ts`) only ever read `.message`, so every FluentValidation
-rejection anywhere in the app — not just admin creation — surfaced as this one useless string
-regardless of which field or rule actually failed. Fixed by preferring `.errors` (flattened into
-one readable string) over the generic `.message` when present; admins/page.tsx already had
-correct `onError` toast wiring, so no UI change was needed once the interceptor stopped
-discarding the real reason.
-Also confirmed live that "Không gửi được thông báo" on `/announcements` is the existing,
-already-documented gap (`sendAnnouncement` stub — finviet-be has no broadcast/fan-out endpoint at
-all), not a regression; the inline red text already said as much on-screen.
+_(None right now — document the next feature/fix here, per `context/ai-interaction.md`'s
+workflow, before starting work on it.)_
 
 ## History
 
-- 2026-08-17 — **Fix Users status-filter bug + verify the previous entry's fixes landed live.**
-  Reported after those fix commits were pushed: on `/users`, selecting "Trạng thái: Khóa" still
-  showed active-status users instead of locked ones. Root cause, same shape as the tooltip bug in
-  the entry below: `real/users.ts`'s `listUsers` already knew `GET /api/users` has no server-side
-  `status` filter (documented in its own comment) and made the deliberate choice not to apply it
-  — but never disabled or hid the filter dropdown in the UI, so it looked functional while
-  silently doing nothing. Fixed for real rather than just disabling the control: when
-  `status !== "all"`, `listUsers` now pages through every `Search`-matching result from
-  finviet-be (100/request, its max), filters by `isActive` in Node, and paginates the filtered
-  set itself — capped at 20 pages (2,000 customers) as a documented worst-case bound, since
-  there's still no real `isActive` query param to push this down to the backend.
-  Also used this pass to confirm the previous entry's fixes actually reached production —
-  Vercel's GitHub auto-deploy had silently stopped firing after the first `main` push (no
-  deployment record for two subsequent pushes, ~4+ hours apart, despite historically deploying
-  within minutes); the user reconnected the Vercel↔GitHub git integration from their dashboard,
-  and an empty trigger commit got it deploying again. Verified live post-deploy: the tooltip fix
-  (hover directly on a visible spike → correct matching date/value, e.g.
-  "13/08/2026, Người dùng mới: 2"), and swept console errors across Overview/Users/System
-  Configuration/Knowledge Base — clean, only `category-corrections` and `announcements` still 400
-  (both intentional, documented stubs with no real backend endpoint to wire yet).
-
 <!-- Keep this updated. Earliest to latest -->
-
-- 2026-08-17 — **Fix silent-failure bug on category/plan creation + wrong trend-chart tooltip.**
-  Reported: creating a category in the deployed admin (now pointed at real `finviet-be`) fails
-  with a 400 and no visible feedback. Root cause: `categories-tab.tsx`'s `handleSave` had no
-  client-side required-field validation and no `onError` on `createCategory`/`updateCategory`,
-  and unconditionally closed the modal right after firing the mutation regardless of outcome —
-  reproduced live (`POST /api/categories` with an empty name → `"Category name is required."`,
-  silently swallowed). The identical pattern existed in `plans-tab.tsx`. Two related gaps
-  surfaced auditing every CRUD tab for the same question: `users/page.tsx` had no `onError` on
-  `setUserActive`/`triggerPasswordReset` (meaning "Mở khóa" now *always* silently fails, since
-  finviet-be has no reactivation endpoint, but nothing told the admin why), and
-  `announcements/page.tsx`'s `sendAnnouncement` had no `onError` either. `buckets-tab.tsx`/
-  `scoring-tab.tsx` already had correct `onError` handling, used as the reference pattern for all
-  of the above fixes.
-  Second report — "dashboard chart still shows something when there's no data" — turned out to
-  be two things. The data/day-bucketing itself is correct (verified against live
-  `/api/analytics/summary`/`/trend` and `AnalyticsController`'s handlers); added an explicit
-  empty-state message on the Overview trend charts for the genuinely-zero case instead of
-  rendering an all-zero chart. The real bug, from a follow-up screenshot: hovering anywhere on
-  either trend chart popped a tooltip for a fixed, wrong date/value (e.g.
-  "20/07/2026, Người dùng mới: 0") regardless of cursor position, including directly over a
-  visible spike. Root cause in `chart-data.ts`'s `toChartPoints`: the edge-labeling design (only
-  the first/last day get visible x-axis text) blanked `label` to `""` for every other point — but
-  `label` doubles as `<XAxis dataKey="label">`, and recharts uses that field's *value* to resolve
-  hover position on a category axis. With ~28 of 30 points sharing `""`, recharts collapsed them
-  into one band and always resolved hover to whichever point matched first, independent of actual
-  cursor position. Fixed by decoupling the two concerns: every point now gets a real, unique
-  `label`, and `edge-aware-tick.tsx`'s `EdgeAwareTick` decides what to *render* purely from tick
-  `index`, independent of the label value.
-  Built directly on `main` then moved to branch `fix/admin-web-error-handling` mid-session (should
-  have branched first per the workflow below — corrected once noticed), merged back, pushed.
-
-- 2026-08-17 — **5 of the 6 remaining stub domains wired to real `finviet-be`** (Users,
-  Categories, Buckets, Scoring Weights, Knowledge Base) — the last domains left as
-  `throw new Error("Not implemented")` stubs from the 2026-08-14 mock/real API switch. Verified
-  each real endpoint's actual shape against the deployed backend
-  (`https://finviet-be-7t8w.onrender.com/swagger/v1/swagger.json`) and the current `origin/dev`
-  controller source rather than trusting the comments already in these stub files or
-  `context/backend-gaps.md` — both had gone stale in both directions: several "not implemented"
-  domains already had a real endpoint (Buckets, Scoring, Categories list, Knowledge Base list),
-  while `POST /api/categories/icons` turned out to exist but be `[Authorize(Roles = "Customer")]`
-  — a 403 for the admin JWT this app holds, so category icon upload stays mock-only regardless.
-  `context/backend-gaps.md` rewritten to match current reality (added a "check swagger before
-  trusting this doc" note up top).
-  **Buckets, Scoring, Categories**: straightforward CRUD wiring once the DTOs were confirmed
-  (`expenseClass` ↔ `defaultBucket`, both already lowercase `needs`/`wants`/`savings` — no case
-  mapping needed). Scoring's bulk `saveScoringCriteria` fans out into one `PATCH
-  /api/scoring-criteria/{code}` per changed criterion (the real endpoint has no bulk save), with
-  the 100%-per-period sum still validated client-side against the merged full set before any
-  PATCH fires, since three independent single-row updates give the server no atomic place to
-  enforce it.
-  **Knowledge Base**: list + upload wired to `GET`/`POST /api/ai/documents`. `DocumentUploadInput`
-  gained a real `file: File` field — the Route Handler was previously discarding the actual file
-  and only forwarding its name to the (stub) service, even though the upload hook already sent a
-  real `FormData` with the file attached (a leftover from the 2026-08-14 migration). `status` is
-  always `"ready"` in real mode: ingestion is synchronous (`IngestPdfAsync` chunks before
-  returning), so there's no real "processing" state to model, unlike the mock's simulated one.
-  Delete stays stubbed — `AdminAiController` still has no `DELETE`, matching the already-disabled
-  delete button from the 2026-08-15 entry below.
-  **Users**: list wired to `GET /api/users` (real server-side pagination + search). Two real gaps
-  surfaced and were **not** papered over: `UserResponseDto` has no transaction/wallet counts or
-  subscription plan (defaulted to 0/0/"free" — see backend-gaps.md), and there's no server-side
-  `status` filter (the dropdown is a no-op in real mode rather than breaking pagination by
-  filtering a fetched page client-side). Lock wired to `PUT /api/account/deactivate/{id}`; unlock
-  throws a clear "not implemented" error since no reactivation endpoint exists anywhere in
-  `finviet-be`. Password reset wired to the same public `POST /api/auth/forgot-password` the
-  mobile app's own "forgot password" screen uses — this needed a real signature change
-  (`triggerPasswordReset(id, email)`, threaded through `src/services/{mock,real}/users.ts`,
-  the barrel, the Route Handler's Zod body, `useTriggerPasswordReset`, and the Users page's call
-  site) since the real call requires an email finviet-be has no admin id→email lookup for
-  (`UsersController` has no `GET /{id}`) — the Users table already has it client-side per row, so
-  it's threaded through rather than fabricated server-side.
-  **category-corrections was deliberately left stubbed** — see the updated comment in
-  `src/services/real/category-corrections.ts` and its own `backend-gaps.md` entry.
-  `GET /api/category-corrections` is real and paginated, but `CategoryCorrectionResponseDto`
-  only returns raw `customerId`/`transactionId`/`correctedCategoryId` GUIDs with no join to
-  customer email, transaction description, or amount — this screen's three most important
-  columns (table + CSV export + detail modal, per `src/app/(dashboard)/category-corrections/page.tsx`).
-  There's no admin-accessible way to resolve those separately either
-  (`TransactionsController` is `[Authorize(Roles = "Customer")]` only, no admin customer lookup
-  exists). Showing raw GUIDs or fabricated placeholders in place of those columns would be worse
-  than the current explicit error — needs a joined DTO (or a dedicated admin lookup endpoint) on
-  the backend first.
-  `npm install` (node_modules wasn't present in this checkout), `npm run build`, and `npm run
-  lint` all clean. **Not verified live in the browser** — no `.env.local` exists in this
-  checkout (no `FINVIET_API_BASE_URL`, `ADMIN_SHADOW_SECRET`, `BETTER_AUTH_SECRET`, or admin
-  credentials for the deployed Render backend), so an actual login → real-mode round trip
-  couldn't be exercised this session. Built on branch `feature/wire-remaining-admin-services`,
-  off `main`. Not committed/pushed.
 
 - 2026-08-15 — **Overview dashboard wired to real analytics + Knowledge Base delete disabled**:
   started from a review of the Knowledge Base admin screen (does it let admins actually control
@@ -456,3 +331,234 @@ all), not a regression; the inline red text already said as much on-screen.
   (blocks flipping any domain to real), per-domain `USE_MOCK_API` overrides (not needed until the
   first real endpoint lands), and the `backend-web-todos.md` export itself. Built on branch
   `feature/mock-real-api-switch`.
+
+- 2026-08-17 — **5 of the 6 remaining stub domains wired to real `finviet-be`** (Users,
+  Categories, Buckets, Scoring Weights, Knowledge Base) — the last domains left as
+  `throw new Error("Not implemented")` stubs from the 2026-08-14 mock/real API switch. Verified
+  each real endpoint's actual shape against the deployed backend
+  (`https://finviet-be-7t8w.onrender.com/swagger/v1/swagger.json`) and the current `origin/dev`
+  controller source rather than trusting the comments already in these stub files or
+  `context/backend-gaps.md` — both had gone stale in both directions: several "not implemented"
+  domains already had a real endpoint (Buckets, Scoring, Categories list, Knowledge Base list),
+  while `POST /api/categories/icons` turned out to exist but be `[Authorize(Roles = "Customer")]`
+  — a 403 for the admin JWT this app holds, so category icon upload stays mock-only regardless.
+  `context/backend-gaps.md` rewritten to match current reality (added a "check swagger before
+  trusting this doc" note up top).
+  **Buckets, Scoring, Categories**: straightforward CRUD wiring once the DTOs were confirmed
+  (`expenseClass` ↔ `defaultBucket`, both already lowercase `needs`/`wants`/`savings` — no case
+  mapping needed). Scoring's bulk `saveScoringCriteria` fans out into one `PATCH
+  /api/scoring-criteria/{code}` per changed criterion (the real endpoint has no bulk save), with
+  the 100%-per-period sum still validated client-side against the merged full set before any
+  PATCH fires, since three independent single-row updates give the server no atomic place to
+  enforce it.
+  **Knowledge Base**: list + upload wired to `GET`/`POST /api/ai/documents`. `DocumentUploadInput`
+  gained a real `file: File` field — the Route Handler was previously discarding the actual file
+  and only forwarding its name to the (stub) service, even though the upload hook already sent a
+  real `FormData` with the file attached (a leftover from the 2026-08-14 migration). `status` is
+  always `"ready"` in real mode: ingestion is synchronous (`IngestPdfAsync` chunks before
+  returning), so there's no real "processing" state to model, unlike the mock's simulated one.
+  Delete stays stubbed — `AdminAiController` still has no `DELETE`, matching the already-disabled
+  delete button from the 2026-08-15 entry above.
+  **Users**: list wired to `GET /api/users` (real server-side pagination + search). Two real gaps
+  surfaced and were **not** papered over: `UserResponseDto` has no transaction/wallet counts or
+  subscription plan (defaulted to 0/0/"free" — see backend-gaps.md), and there's no server-side
+  `status` filter (the dropdown is a no-op in real mode rather than breaking pagination by
+  filtering a fetched page client-side — fixed for real two entries below). Lock wired to
+  `PUT /api/account/deactivate/{id}`; unlock throws a clear "not implemented" error since no
+  reactivation endpoint exists anywhere in `finviet-be`. Password reset wired to the same public
+  `POST /api/auth/forgot-password` the mobile app's own "forgot password" screen uses — this
+  needed a real signature change (`triggerPasswordReset(id, email)`, threaded through
+  `src/services/{mock,real}/users.ts`, the barrel, the Route Handler's Zod body,
+  `useTriggerPasswordReset`, and the Users page's call site) since the real call requires an
+  email finviet-be has no admin id→email lookup for (`UsersController` has no `GET /{id}`) — the
+  Users table already has it client-side per row, so it's threaded through rather than fabricated
+  server-side.
+  **category-corrections was deliberately left stubbed** — see the updated comment in
+  `src/services/real/category-corrections.ts` and its own `backend-gaps.md` entry.
+  `GET /api/category-corrections` is real and paginated, but `CategoryCorrectionResponseDto`
+  only returns raw `customerId`/`transactionId`/`correctedCategoryId` GUIDs with no join to
+  customer email, transaction description, or amount — this screen's three most important
+  columns (table + CSV export + detail modal, per `src/app/(dashboard)/category-corrections/page.tsx`).
+  There's no admin-accessible way to resolve those separately either
+  (`TransactionsController` is `[Authorize(Roles = "Customer")]` only, no admin customer lookup
+  exists). Showing raw GUIDs or fabricated placeholders in place of those columns would be worse
+  than the current explicit error — needs a joined DTO (or a dedicated admin lookup endpoint) on
+  the backend first.
+  `npm install` (node_modules wasn't present in this checkout), `npm run build`, and `npm run
+  lint` all clean. **Not verified live in the browser** — no `.env.local` exists in this
+  checkout (no `FINVIET_API_BASE_URL`, `ADMIN_SHADOW_SECRET`, `BETTER_AUTH_SECRET`, or admin
+  credentials for the deployed Render backend), so an actual login → real-mode round trip
+  couldn't be exercised this session. Built on branch `feature/wire-remaining-admin-services`,
+  off `main`. Not committed/pushed.
+
+- 2026-08-17 — **Fix silent-failure bug on category/plan creation + wrong trend-chart tooltip.**
+  Reported: creating a category in the deployed admin (now pointed at real `finviet-be`) fails
+  with a 400 and no visible feedback. Root cause: `categories-tab.tsx`'s `handleSave` had no
+  client-side required-field validation and no `onError` on `createCategory`/`updateCategory`,
+  and unconditionally closed the modal right after firing the mutation regardless of outcome —
+  reproduced live (`POST /api/categories` with an empty name → `"Category name is required."`,
+  silently swallowed). The identical pattern existed in `plans-tab.tsx`. Two related gaps
+  surfaced auditing every CRUD tab for the same question: `users/page.tsx` had no `onError` on
+  `setUserActive`/`triggerPasswordReset` (meaning "Mở khóa" now *always* silently fails, since
+  finviet-be has no reactivation endpoint, but nothing told the admin why), and
+  `announcements/page.tsx`'s `sendAnnouncement` had no `onError` either. `buckets-tab.tsx`/
+  `scoring-tab.tsx` already had correct `onError` handling, used as the reference pattern for all
+  of the above fixes.
+  Second report — "dashboard chart still shows something when there's no data" — turned out to
+  be two things. The data/day-bucketing itself is correct (verified against live
+  `/api/analytics/summary`/`/trend` and `AnalyticsController`'s handlers); added an explicit
+  empty-state message on the Overview trend charts for the genuinely-zero case instead of
+  rendering an all-zero chart. The real bug, from a follow-up screenshot: hovering anywhere on
+  either trend chart popped a tooltip for a fixed, wrong date/value (e.g.
+  "20/07/2026, Người dùng mới: 0") regardless of cursor position, including directly over a
+  visible spike. Root cause in `chart-data.ts`'s `toChartPoints`: the edge-labeling design (only
+  the first/last day get visible x-axis text) blanked `label` to `""` for every other point — but
+  `label` doubles as `<XAxis dataKey="label">`, and recharts uses that field's *value* to resolve
+  hover position on a category axis. With ~28 of 30 points sharing `""`, recharts collapsed them
+  into one band and always resolved hover to whichever point matched first, independent of actual
+  cursor position. Fixed by decoupling the two concerns: every point now gets a real, unique
+  `label`, and `edge-aware-tick.tsx`'s `EdgeAwareTick` decides what to *render* purely from tick
+  `index`, independent of the label value.
+  Built directly on `main` then moved to branch `fix/admin-web-error-handling` mid-session (should
+  have branched first per the workflow below — corrected once noticed), merged back, pushed.
+
+- 2026-08-17 — **Fix Users status-filter bug + verify the previous entry's fixes landed live.**
+  Reported after those fix commits were pushed: on `/users`, selecting "Trạng thái: Khóa" still
+  showed active-status users instead of locked ones. Root cause, same shape as the tooltip bug in
+  the entry above: `real/users.ts`'s `listUsers` already knew `GET /api/users` has no server-side
+  `status` filter (documented in its own comment) and made the deliberate choice not to apply it
+  — but never disabled or hid the filter dropdown in the UI, so it looked functional while
+  silently doing nothing. Fixed for real rather than just disabling the control: when
+  `status !== "all"`, `listUsers` now pages through every `Search`-matching result from
+  finviet-be (100/request, its max), filters by `isActive` in Node, and paginates the filtered
+  set itself — capped at 20 pages (2,000 customers) as a documented worst-case bound, since
+  there's still no real `isActive` query param to push this down to the backend.
+  Also used this pass to confirm the previous entry's fixes actually reached production —
+  Vercel's GitHub auto-deploy had silently stopped firing after the first `main` push (no
+  deployment record for two subsequent pushes, ~4+ hours apart, despite historically deploying
+  within minutes); the user reconnected the Vercel↔GitHub git integration from their dashboard,
+  and an empty trigger commit got it deploying again. Verified live post-deploy: the tooltip fix
+  (hover directly on a visible spike → correct matching date/value, e.g.
+  "13/08/2026, Người dùng mới: 2"), and swept console errors across Overview/Users/System
+  Configuration/Knowledge Base — clean, only `category-corrections` and `announcements` still 400
+  (both intentional, documented stubs with no real backend endpoint to wire yet).
+
+- 2026-08-17 — **Fix generic "Validation failed." error messages losing the actual reason.**
+  Reported: creating a new admin at `/admins` always shows a useless "Validation failed." toast no
+  matter what's wrong, and the request 400s. Reproduced live against `POST /api/admins` with a
+  weak password — finviet-be's FluentValidation failures (`CreateAdminCommandValidator`, likely
+  others) return a generic top-level `message: "Validation failed."` while the actual per-field
+  reasons live in a separate `errors` object (ASP.NET's shape: `{ FieldName: string[] }`), e.g.
+  `{"message":"Validation failed.","errors":{"Password":["Password must contain at least one
+  uppercase letter.","Password must contain at least one digit."]}}`. `finvietApi`'s response
+  interceptor (`src/lib/finviet-api.ts`) only ever read `.message`, so every FluentValidation
+  rejection anywhere in the app — not just admin creation — surfaced as this one useless string
+  regardless of which field or rule actually failed. Fixed by preferring `.errors` (flattened into
+  one readable string) over the generic `.message` when present; admins/page.tsx already had
+  correct `onError` toast wiring, so no UI change was needed once the interceptor stopped
+  discarding the real reason.
+  Also confirmed live that "Không gửi được thông báo" on `/announcements` is the existing,
+  already-documented gap (`sendAnnouncement` stub — finviet-be has no broadcast/fan-out endpoint
+  at all), not a regression; the inline red text already said as much on-screen.
+
+- 2026-08-18 — **Fix: domain-aware mock/real fallback + preserved HTTP status codes**: with
+  `USE_MOCK_API=false` in `.env`, logging in as an admin (e.g. `master`) caused every API call
+  across every domain to fail with a generic 400 Bad Request. Root cause: `isMockMode()` was a
+  single global switch with no per-domain awareness — only 3 of 10 domains (`overview`, `plans`,
+  `admins`) have a real `src/services/real/*.ts` implementation; the other seven were intentional
+  stub throws ("Not implemented: ..."). With the global flag off, every domain barrel routed to
+  `real/*.ts`, so the seven stubs always threw. Separately, `src/lib/api-response.ts`'s
+  `jsonError()` collapsed *any* non-Zod, non-auth thrown error to HTTP 400, and
+  `src/lib/finviet-api.ts`'s axios interceptor already discarded the real status from `finviet-be`
+  on failure — so even genuine real-backend errors (401/403/404/500) would also surface as 400,
+  masking the real cause behind a uniform status code.
+  Fix: `isMockMode(domain)` is now domain-aware (real-backed domains honor the global flag,
+  everything else always falls back to mock since there's no real endpoint to call yet), and a
+  new `HttpError` class (`src/lib/http-error.ts`) lets real backend failures and stub throws
+  preserve their real status code instead of being collapsed to 400 by `jsonError()`.
+  `npm run build`/`npm run lint` both clean. Verified in the browser against the real deployed
+  `finviet-be`: `requireAdminSession()` confirmed to run before the domain fallback in every
+  Route Handler (so the auth gate is untouched by this fix), and TypeScript's own literal-type
+  checking on `isMockMode(domain)`'s `Domain` union caught any typos across all 10 call sites at
+  build time. A full logged-in click-through of a previously-400ing domain (e.g. Users) returning
+  200 was not captured in this session due to repeated TOTP-code friction testing `master`'s
+  real 2FA login — flagging as not fully E2E-confirmed, though the fix logic itself is
+  straightforward and the auth-gate ordering was directly verified. Built on branch
+  `fix/domain-mock-real-fallback`.
+
+- 2026-08-18 — **Fix: sidebar/account panel show hardcoded "Admin" / "admin@finviet.vn" for every
+  admin**: found via screenshot — the sidebar's account button and the "Tài khoản của tôi" panel
+  both literally hardcoded `"Admin"` / `"admin@finviet.vn"` as `useState` initial values
+  (`src/components/sidebar/sidebar.tsx`, `src/components/sidebar/account-panel.tsx`) — a leftover
+  from the 2026-08-05 pass that built the account panel as visual-only mock, never reconnected
+  once real login/session landed. Every logged-in admin saw the same placeholder regardless of who
+  they actually were.
+  Fix: better-auth's own `user` table already has the real name/email (set at account
+  provisioning in `src/app/api/admin/login/route.ts`'s `auth.api.createUser` call). New
+  `src/hooks/useAdminSession.ts` calls better-auth's own `GET /api/auth/get-session` directly (no
+  finviet-be logic needed, matching the pattern already used by `useVerifyTotp`/
+  `useVerifyBackupCode`), returning `{name, email} | null`. `Sidebar` fetches it once and passes
+  down to `AccountPanel` as props (avoiding a duplicate fetch), replacing both hardcoded literals
+  and the hardcoded "AD" avatar initials (now derived from the real name). Falls back to a generic
+  placeholder when session is null (mock mode, where login is still visual-only per
+  `requireAdminSession()`'s own doc comment) so mock-mode demo usage doesn't break.
+  Not in scope: `AccountPanel`'s name/email fields were already presentation-only before this fix
+  (only the password-change mutation is wired) — fixing their *initial values* doesn't change that
+  pre-existing, separate gap.
+  `npm run build`/`npm run lint` both clean. Verified live in the browser: unauthenticated
+  `GET /api/auth/get-session` confirmed to return `null` cleanly, falling back to the placeholder
+  without crashing. The authenticated real-data path (real name/email actually rendering) was not
+  live-verified due to repeated TOTP-code friction in this session — the code path is
+  straightforward and type-checked, but flagging this as not fully E2E-confirmed. Built on branch
+  `fix/sidebar-hardcoded-admin-identity`.
+
+- 2026-08-18 — **2FA login: "use a recovery code instead" on the TOTP challenge screen**:
+  Vercel-style UX addition to `/login`'s TOTP challenge step (`src/app/login/totp-step.tsx`),
+  prompted by comparing our screen to Vercel's own 2FA challenge (which offers a "Use a Recovery
+  Code Instead" link alongside the 6-digit input). No backend work needed: better-auth's
+  `twoFactor()` plugin (`src/lib/auth.ts`) composes `backupCode2fa` automatically, so
+  `POST /api/auth/two-factor/verify-backup-code` was already live via the existing `[...all]`
+  catch-all route, just unused until now. `totp-step.tsx` gained a toggle between the existing
+  6-digit TOTP input and a single backup-code text field, wired to a new `useVerifyBackupCode()`
+  hook (`src/hooks/useAdminLogin.ts`, mirroring the existing `useVerifyTotp()`). State
+  (`verifyMode`, `backupCode`) lifted to `page.tsx`, matching how `digits`/`totpError` are already
+  owned there. Enrollment (`enroll-step.tsx`) intentionally untouched — an admin doesn't have
+  backup codes yet during their own enrollment. Deliberately did not build a full self-service
+  "2FA recovery" flow (Vercel's second link) — that's the break-glass admin workflow, already a
+  flagged spec gap in `project-spec.md` Feature A; the existing "Liên hệ quản trị viên khác..."
+  footer text covers that case for now.
+  Verified end-to-end in the browser (logged in as `master` against the real deployed
+  `finviet-be`, reaching the real TOTP challenge): toggle switches correctly between the two
+  input modes with correct instruction copy, submits to the correct endpoint per mode confirmed
+  via network tab (`verify-totp` vs `verify-backup-code`), shows the right mode-specific error
+  banner text on a wrong code (401), and resets cleanly when toggling back. `npm run build` and
+  `npm run lint` both clean. Built on branch `feature/2fa-backup-code-login`.
+
+- 2026-08-18 — **Merge `origin/main` and `origin/dev`**: the two branches had diverged —
+  `main` had picked up 4 hotfix commits shipped directly against it (bypassing this repo's own
+  branch→dev→main workflow), most significantly wiring 5 of the last 6 stub `real/*.ts` domains
+  (Users, Categories, Buckets, Scoring, Knowledge Base) to genuine `finviet-be` calls, while
+  `dev` had 3 commits of its own `main` never saw (the entries directly above). `git merge-tree`
+  confirmed 7 real conflicts, all in files both sides touched independently: `src/lib/finviet-api.ts`
+  (dev's `HttpError`-based status-code preservation combined with main's FluentValidation
+  `.errors`-field extraction — kept both, one now feeds the other), the 5 newly-real
+  `src/services/real/*.ts` files (dev's side was only the stub being replaced — took main's
+  implementation as-is), and `src/services/real/category-corrections.ts` (kept main's updated
+  comment — the list endpoint exists now but still can't be used for lack of a customer/
+  transaction join — wrapped in dev's `HttpError(501, ...)` convention instead of a plain
+  `Error`, for consistency with the other still-stubbed domains).
+  One gap `git` couldn't flag since only one side touched the file: `src/lib/env.ts`'s
+  `REAL_BACKED_DOMAINS` set (dev's domain-aware mock/real fallback, added the day before) still
+  only listed `overview`/`plans`/`admins` — after pulling in main's 5 newly-real domains, that
+  set was stale enough to silently force them back into mock mode under `USE_MOCK_API=false`
+  despite now having real backends. Added `buckets`/`categories`/`knowledge-base`/`scoring`/
+  `users` to the set by hand.
+  This file's own History section had drifted out of the "earliest to latest" convention its own
+  comment asks for — `main`'s 4 unique entries had been prepended at the top instead of appended,
+  and the newest of the four (the FluentValidation fix) was never filed out of the top "Current
+  Feature" placeholder at all. Reordered all 4 into chronological position among the entries
+  above, filed the stray FluentValidation write-up as a proper dated entry, and restored the
+  placeholder.
+  `npm run build` and `npm run lint` both clean. Merged on branch `chore/sync-dev-main` (off
+  `origin/dev`, merging `origin/main` in), then fast-forwarded into both `dev` and `main` so
+  neither branch has to re-resolve the same conflicts later.

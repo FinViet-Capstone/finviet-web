@@ -1,4 +1,5 @@
 import axios from "axios";
+import { HttpError } from "./http-error";
 
 // Server-only client for calling finviet-be directly. Used by src/services/real/*.ts once a
 // domain flips out of mock mode.
@@ -35,12 +36,14 @@ function extractErrorMessage(data: unknown): string | undefined {
 // Axios rejects on any non-2xx response before a caller's `unwrap()` ever runs, so without
 // this, finviet-be's actual validation/conflict message (e.g. "Current password is
 // incorrect.") gets replaced by axios's generic "Request failed with status code 400" —
-// swallowing the one piece of information the frontend needs to show the user. Re-throws
-// with the real envelope message when the error response has the expected shape.
+// swallowing the one piece of information the frontend needs to show the user. Re-throws as an
+// HttpError carrying the real status, so jsonError() in src/lib/api-response.ts doesn't have to
+// collapse every finviet-be failure (401/403/404/500/...) down to a generic 400.
 finvietApi.interceptors.response.use(undefined, (error) => {
+  const status = error?.response?.status ?? 500;
   const message = extractErrorMessage(error?.response?.data);
   if (message) {
-    throw new Error(message);
+    throw new HttpError(status, message);
   }
   throw error;
 });

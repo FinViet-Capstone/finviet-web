@@ -47,3 +47,22 @@ export function useVerifyTotp() {
     },
   });
 }
+
+// Same shape as useVerifyTotp, but hits better-auth's backup-code endpoint instead — already live
+// via the two-factor plugin's default backupCode2fa sub-plugin, no backend work needed.
+export function useVerifyBackupCode() {
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const res = await fetch("/api/auth/two-factor/verify-backup-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof body?.message === "string" ? body.message : "Mã dự phòng không đúng");
+      }
+      return body as { token: string; user: unknown };
+    },
+  });
+}

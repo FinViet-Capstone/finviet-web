@@ -3,7 +3,7 @@ import * as mockUsers from "./mock/users";
 import * as realUsers from "./real/users";
 
 function impl() {
-  return isMockMode() ? mockUsers : realUsers;
+  return isMockMode("users") ? mockUsers : realUsers;
 }
 
 export const listUsers: typeof mockUsers.listUsers = (params) => impl().listUsers(params);

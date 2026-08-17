@@ -4,6 +4,7 @@ import type {
   ExportCorrectionsParams,
   ListCorrectionsParams,
 } from "@/types/category-corrections";
+import { HttpError } from "@/lib/http-error";
 
 // GET /api/category-corrections is real now ([Authorize(Roles = "Admin")], paginated, with
 // Page/PageSize/CategoryId/CreatedAtFrom/CreatedAtTo query params) — but CategoryCorrectionResponseDto
@@ -18,13 +19,15 @@ import type {
 // (or a dedicated admin transaction/customer lookup) before this screen can go real.
 
 export async function listCorrections(_params: ListCorrectionsParams): Promise<CorrectionsListResult> {
-  throw new Error(
+  throw new HttpError(
+    501,
     "Not implemented: /api/category-corrections exists but returns raw ids with no customer/transaction join yet",
   );
 }
 
 export async function exportCorrections(_params: ExportCorrectionsParams): Promise<CategoryCorrectionView[]> {
-  throw new Error(
+  throw new HttpError(
+    501,
     "Not implemented: /api/category-corrections exists but returns raw ids with no customer/transaction join yet",
   );
 }

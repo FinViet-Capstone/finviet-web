@@ -3,7 +3,7 @@ import * as mockBuckets from "./mock/buckets";
 import * as realBuckets from "./real/buckets";
 
 function impl() {
-  return isMockMode() ? mockBuckets : realBuckets;
+  return isMockMode("buckets") ? mockBuckets : realBuckets;
 }
 
 export const listBuckets: typeof mockBuckets.listBuckets = () => impl().listBuckets();

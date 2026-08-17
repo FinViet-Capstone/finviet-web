@@ -3,7 +3,7 @@ import * as mockAnnouncements from "./mock/announcements";
 import * as realAnnouncements from "./real/announcements";
 
 function impl() {
-  return isMockMode() ? mockAnnouncements : realAnnouncements;
+  return isMockMode("announcements") ? mockAnnouncements : realAnnouncements;
 }
 
 export const listAnnouncements: typeof mockAnnouncements.listAnnouncements = () => impl().listAnnouncements();
