@@ -32,4 +32,7 @@ export const queryKeys = {
     summary: () => ["overview", "summary"] as const,
     trend: (metric: string, days: number) => ["overview", "trend", metric, days] as const,
   },
+  adminSession: {
+    current: () => ["admin-session"] as const,
+  },
 };

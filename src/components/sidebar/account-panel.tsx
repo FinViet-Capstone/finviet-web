@@ -6,13 +6,15 @@ import { useChangeAdminPassword } from "@/hooks/useAdmins";
 import styles from "./account-panel.module.css";
 
 interface AccountPanelProps {
+  name: string;
+  email: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function AccountPanel({ onClose, onSaved }: AccountPanelProps) {
-  const [name, setName] = useState("Admin");
-  const [email, setEmail] = useState("admin@finviet.vn");
+export function AccountPanel({ name: initialName, email: initialEmail, onClose, onSaved }: AccountPanelProps) {
+  const [name, setName] = useState(initialName);
+  const [email, setEmail] = useState(initialEmail);
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

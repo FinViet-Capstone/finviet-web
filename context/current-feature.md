@@ -356,3 +356,29 @@ workflow, before starting work on it.)_
   real 2FA login — flagging as not fully E2E-confirmed, though the fix logic itself is
   straightforward and the auth-gate ordering was directly verified. Built on branch
   `fix/domain-mock-real-fallback`.
+
+- 2026-08-18 — **Fix: sidebar/account panel show hardcoded "Admin" / "admin@finviet.vn" for every
+  admin**: found via screenshot — the sidebar's account button and the "Tài khoản của tôi" panel
+  both literally hardcoded `"Admin"` / `"admin@finviet.vn"` as `useState` initial values
+  (`src/components/sidebar/sidebar.tsx`, `src/components/sidebar/account-panel.tsx`) — a leftover
+  from the 2026-08-05 pass that built the account panel as visual-only mock, never reconnected
+  once real login/session landed. Every logged-in admin saw the same placeholder regardless of who
+  they actually were.
+  Fix: better-auth's own `user` table already has the real name/email (set at account
+  provisioning in `src/app/api/admin/login/route.ts`'s `auth.api.createUser` call). New
+  `src/hooks/useAdminSession.ts` calls better-auth's own `GET /api/auth/get-session` directly (no
+  finviet-be logic needed, matching the pattern already used by `useVerifyTotp`/
+  `useVerifyBackupCode`), returning `{name, email} | null`. `Sidebar` fetches it once and passes
+  down to `AccountPanel` as props (avoiding a duplicate fetch), replacing both hardcoded literals
+  and the hardcoded "AD" avatar initials (now derived from the real name). Falls back to a generic
+  placeholder when session is null (mock mode, where login is still visual-only per
+  `requireAdminSession()`'s own doc comment) so mock-mode demo usage doesn't break.
+  Not in scope: `AccountPanel`'s name/email fields were already presentation-only before this fix
+  (only the password-change mutation is wired) — fixing their *initial values* doesn't change that
+  pre-existing, separate gap.
+  `npm run build`/`npm run lint` both clean. Verified live in the browser: unauthenticated
+  `GET /api/auth/get-session` confirmed to return `null` cleanly, falling back to the placeholder
+  without crashing. The authenticated real-data path (real name/email actually rendering) was not
+  live-verified due to repeated TOTP-code friction in this session — the code path is
+  straightforward and type-checked, but flagging this as not fully E2E-confirmed. Built on branch
+  `fix/sidebar-hardcoded-admin-identity`.
