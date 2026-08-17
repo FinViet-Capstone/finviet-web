@@ -331,3 +331,28 @@ workflow, before starting work on it.)_
   (blocks flipping any domain to real), per-domain `USE_MOCK_API` overrides (not needed until the
   first real endpoint lands), and the `backend-web-todos.md` export itself. Built on branch
   `feature/mock-real-api-switch`.
+
+- 2026-08-18 — **Fix: domain-aware mock/real fallback + preserved HTTP status codes**: with
+  `USE_MOCK_API=false` in `.env`, logging in as an admin (e.g. `master`) caused every API call
+  across every domain to fail with a generic 400 Bad Request. Root cause: `isMockMode()` was a
+  single global switch with no per-domain awareness — only 3 of 10 domains (`overview`, `plans`,
+  `admins`) have a real `src/services/real/*.ts` implementation; the other seven were intentional
+  stub throws ("Not implemented: ..."). With the global flag off, every domain barrel routed to
+  `real/*.ts`, so the seven stubs always threw. Separately, `src/lib/api-response.ts`'s
+  `jsonError()` collapsed *any* non-Zod, non-auth thrown error to HTTP 400, and
+  `src/lib/finviet-api.ts`'s axios interceptor already discarded the real status from `finviet-be`
+  on failure — so even genuine real-backend errors (401/403/404/500) would also surface as 400,
+  masking the real cause behind a uniform status code.
+  Fix: `isMockMode(domain)` is now domain-aware (real-backed domains honor the global flag,
+  everything else always falls back to mock since there's no real endpoint to call yet), and a
+  new `HttpError` class (`src/lib/http-error.ts`) lets real backend failures and stub throws
+  preserve their real status code instead of being collapsed to 400 by `jsonError()`.
+  `npm run build`/`npm run lint` both clean. Verified in the browser against the real deployed
+  `finviet-be`: `requireAdminSession()` confirmed to run before the domain fallback in every
+  Route Handler (so the auth gate is untouched by this fix), and TypeScript's own literal-type
+  checking on `isMockMode(domain)`'s `Domain` union caught any typos across all 10 call sites at
+  build time. A full logged-in click-through of a previously-400ing domain (e.g. Users) returning
+  200 was not captured in this session due to repeated TOTP-code friction testing `master`'s
+  real 2FA login — flagging as not fully E2E-confirmed, though the fix logic itself is
+  straightforward and the auth-gate ordering was directly verified. Built on branch
+  `fix/domain-mock-real-fallback`.
