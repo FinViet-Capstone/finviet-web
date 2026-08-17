@@ -1,27 +1,45 @@
 # Current Feature
 
-**Fix Users status-filter bug + verify the 2026-08-17 fixes landed live.** Reported after the
-previous entry's fix commits were pushed: on `/users`, selecting "Trạng thái: Khóa" still showed
-active-status users instead of locked ones. Root cause, same shape as the tooltip bug two entries
-back: `real/users.ts`'s `listUsers` already knew `GET /api/users` has no server-side `status`
-filter (documented in its own comment) and made the deliberate choice not to apply it — but never
-disabled or hid the filter dropdown in the UI, so it looked functional while silently doing
-nothing. Fixed for real rather than just disabling the control: when `status !== "all"`,
-`listUsers` now pages through every `Search`-matching result from finviet-be (100/request, its
-max), filters by `isActive` in Node, and paginates the filtered set itself — capped at 20 pages
-(2,000 customers) as a documented worst-case bound, since there's still no real `isActive` query
-param to push this down to the backend. Correct at any user count that fits under the cap.
-Also used this pass to confirm the previous entry's fixes actually reached production — Vercel's
-GitHub auto-deploy had silently stopped firing after the first `main` push (no deployment record
-for two subsequent pushes, ~4+ hours apart, despite historically deploying within minutes); the
-user reconnected the Vercel↔GitHub git integration from their dashboard, and an empty trigger
-commit got it deploying again. Verified live post-deploy: the tooltip fix (hover directly on a
-visible spike → correct matching date/value, e.g. "13/08/2026, Người dùng mới: 2"), and swept
-console errors across Overview/Users/System Configuration/Knowledge Base — clean, only
-`category-corrections` and `announcements` still 400 (both intentional, documented stubs with no
-real backend endpoint to wire yet, not regressions).
+**Fix generic "Validation failed." error messages losing the actual reason.** Reported: creating
+a new admin at `/admins` always shows a useless "Validation failed." toast no matter what's
+wrong, and the request 400s. Reproduced live against `POST /api/admins` with a weak password —
+finviet-be's FluentValidation failures (`CreateAdminCommandValidator`, likely others) return a
+generic top-level `message: "Validation failed."` while the actual per-field reasons live in a
+separate `errors` object (ASP.NET's shape: `{ FieldName: string[] }`), e.g.
+`{"message":"Validation failed.","errors":{"Password":["Password must contain at least one
+uppercase letter.","Password must contain at least one digit."]}}`. `finvietApi`'s response
+interceptor (`src/lib/finviet-api.ts`) only ever read `.message`, so every FluentValidation
+rejection anywhere in the app — not just admin creation — surfaced as this one useless string
+regardless of which field or rule actually failed. Fixed by preferring `.errors` (flattened into
+one readable string) over the generic `.message` when present; admins/page.tsx already had
+correct `onError` toast wiring, so no UI change was needed once the interceptor stopped
+discarding the real reason.
+Also confirmed live that "Không gửi được thông báo" on `/announcements` is the existing,
+already-documented gap (`sendAnnouncement` stub — finviet-be has no broadcast/fan-out endpoint at
+all), not a regression; the inline red text already said as much on-screen.
 
 ## History
+
+- 2026-08-17 — **Fix Users status-filter bug + verify the previous entry's fixes landed live.**
+  Reported after those fix commits were pushed: on `/users`, selecting "Trạng thái: Khóa" still
+  showed active-status users instead of locked ones. Root cause, same shape as the tooltip bug in
+  the entry below: `real/users.ts`'s `listUsers` already knew `GET /api/users` has no server-side
+  `status` filter (documented in its own comment) and made the deliberate choice not to apply it
+  — but never disabled or hid the filter dropdown in the UI, so it looked functional while
+  silently doing nothing. Fixed for real rather than just disabling the control: when
+  `status !== "all"`, `listUsers` now pages through every `Search`-matching result from
+  finviet-be (100/request, its max), filters by `isActive` in Node, and paginates the filtered
+  set itself — capped at 20 pages (2,000 customers) as a documented worst-case bound, since
+  there's still no real `isActive` query param to push this down to the backend.
+  Also used this pass to confirm the previous entry's fixes actually reached production —
+  Vercel's GitHub auto-deploy had silently stopped firing after the first `main` push (no
+  deployment record for two subsequent pushes, ~4+ hours apart, despite historically deploying
+  within minutes); the user reconnected the Vercel↔GitHub git integration from their dashboard,
+  and an empty trigger commit got it deploying again. Verified live post-deploy: the tooltip fix
+  (hover directly on a visible spike → correct matching date/value, e.g.
+  "13/08/2026, Người dùng mới: 2"), and swept console errors across Overview/Users/System
+  Configuration/Knowledge Base — clean, only `category-corrections` and `announcements` still 400
+  (both intentional, documented stubs with no real backend endpoint to wire yet).
 
 <!-- Keep this updated. Earliest to latest -->
 
