@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Landmark } from "lucide-react";
 import { CredentialStep } from "./credential-step";
-import { TotpStep } from "./totp-step";
+import { TotpStep, type TotpVerifyMode } from "./totp-step";
 import { EnrollStep } from "./enroll-step";
-import { useAdminLogin, useVerifyTotp } from "@/hooks/useAdminLogin";
+import { useAdminLogin, useVerifyTotp, useVerifyBackupCode } from "@/hooks/useAdminLogin";
 import styles from "./login.module.css";
 
 type Step = "credential" | "totp" | "enroll";
@@ -20,11 +20,14 @@ export default function LoginPage() {
   const [credentialError, setCredentialError] = useState(false);
 
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
+  const [verifyMode, setVerifyMode] = useState<TotpVerifyMode>("totp");
+  const [backupCode, setBackupCode] = useState("");
   const [totpError, setTotpError] = useState(false);
   const [enrollData, setEnrollData] = useState<{ totpURI: string; backupCodes: string[] } | null>(null);
 
   const adminLogin = useAdminLogin();
   const verifyTotp = useVerifyTotp();
+  const verifyBackupCode = useVerifyBackupCode();
 
   function handleCredentialSubmit() {
     setCredentialError(false);
@@ -39,6 +42,8 @@ export default function LoginPage() {
       {
         onSuccess: (result) => {
           setDigits(Array(6).fill(""));
+          setBackupCode("");
+          setVerifyMode("totp");
           setTotpError(false);
           if (result.step === "enroll") {
             setEnrollData({ totpURI: result.totpURI, backupCodes: result.backupCodes });
@@ -57,6 +62,21 @@ export default function LoginPage() {
   function handleTotpSubmit() {
     setTotpError(false);
 
+    if (verifyMode === "backup") {
+      if (!backupCode.trim()) {
+        setTotpError(true);
+        return;
+      }
+      verifyBackupCode.mutate(backupCode.trim(), {
+        onSuccess: () => router.push("/overview"),
+        onError: () => {
+          setTotpError(true);
+          setBackupCode("");
+        },
+      });
+      return;
+    }
+
     if (digits.some((digit) => !digit)) {
       setTotpError(true);
       setDigits(Array(6).fill(""));
@@ -70,6 +90,13 @@ export default function LoginPage() {
         setDigits(Array(6).fill(""));
       },
     });
+  }
+
+  function handleModeChange(mode: TotpVerifyMode) {
+    setVerifyMode(mode);
+    setTotpError(false);
+    setDigits(Array(6).fill(""));
+    setBackupCode("");
   }
 
   return (
@@ -103,10 +130,14 @@ export default function LoginPage() {
         />
       ) : (
         <TotpStep
+          mode={verifyMode}
           digits={digits}
-          loading={verifyTotp.isPending}
+          backupCode={backupCode}
+          loading={verifyTotp.isPending || verifyBackupCode.isPending}
           error={totpError}
           onDigitsChange={setDigits}
+          onBackupCodeChange={setBackupCode}
+          onModeChange={handleModeChange}
           onSubmit={handleTotpSubmit}
           onBack={() => setStep("credential")}
         />
