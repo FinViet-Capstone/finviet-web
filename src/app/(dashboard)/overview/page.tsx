@@ -58,6 +58,8 @@ export default function OverviewPage() {
           <div className={styles.chartPlaceholder}>Đang tải…</div>
         ) : signups.isError ? (
           <div className={styles.chartPlaceholder}>Không thể tải biểu đồ.</div>
+        ) : signups.data && sumCounts(signups.data) === 0 ? (
+          <div className={styles.chartPlaceholder}>Chưa có người dùng mới trong 30 ngày qua.</div>
         ) : (
           <SignupsChart data={signups.data ?? []} />
         )}
@@ -72,6 +74,8 @@ export default function OverviewPage() {
           <div className={styles.chartPlaceholder}>Đang tải…</div>
         ) : transactions.isError ? (
           <div className={styles.chartPlaceholder}>Không thể tải biểu đồ.</div>
+        ) : transactions.data && sumCounts(transactions.data) === 0 ? (
+          <div className={styles.chartPlaceholder}>Chưa có giao dịch nào trong 30 ngày qua.</div>
         ) : (
           <TransactionsChart data={transactions.data ?? []} />
         )}
