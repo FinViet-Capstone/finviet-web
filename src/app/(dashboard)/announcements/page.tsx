@@ -27,6 +27,7 @@ export default function AnnouncementsPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const announcements = data?.items ?? [];
   const targetAudienceCount = data?.targetAudienceCount ?? 0;
@@ -44,6 +45,7 @@ export default function AnnouncementsPage() {
   }
 
   function handleConfirmSend() {
+    setSendError(null);
     sendAnnouncement.mutate(
       { title: title.trim(), body: body.trim(), targetSegment: "all" },
       {
@@ -52,6 +54,10 @@ export default function AnnouncementsPage() {
           showToast(`Đã gửi thông báo đến ${formatCount(targetAudienceCount)} người dùng`);
           setTitle("");
           setBody("");
+        },
+        onError: (err) => {
+          setIsConfirmOpen(false);
+          setSendError(err instanceof Error ? err.message : "Không thể gửi thông báo.");
         },
       }
     );
@@ -107,6 +113,8 @@ export default function AnnouncementsPage() {
             </span>
           </div>
         </div>
+
+        {sendError ? <p className={styles.fieldError}>{sendError}</p> : null}
 
         <div className={styles.actions}>
           <button

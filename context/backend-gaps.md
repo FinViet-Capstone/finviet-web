@@ -4,25 +4,68 @@ Found while building out the admin dashboard's mock/frontend screens. Each entry
 where either no real `finviet-be` endpoint exists yet, or a real endpoint/entity doesn't fully
 satisfy what the frontend needs. For the backend team to pick up — not tracked as frontend work.
 
-## Scoring weights aren't actually connected to the real score calculation
+**Note (2026-08-17):** several entries below were written when a domain was still mock-only and
+have since gone stale — the backend team shipped the endpoint independently without this file
+being updated. Before trusting an entry here, check the real endpoint against
+`https://finviet-be-7t8w.onrender.com/swagger/v1/swagger.json` (or the `dev` branch's
+`Controllers/`) rather than assuming this doc is current.
 
-`ScoringCriterion` (`Code, CriterionName, WeightWeekly, WeightMonthly, Version`) exists as a real
-table, but `FinViet.Infrastructure/Services/SpendingScoreService.cs` doesn't read from it — the
-weights are hardcoded directly in C# (`baseWeights` dictionary in `ComputeAsync`). The System
-Configuration → "Trọng số điểm" admin screen now shows the *real* criteria/weights
-(Spike/Budget/Savings, 50/50 weekly, 30/40/30 monthly) so it's no longer misleading about what
-the formula is, but editing and saving on that screen has no effect on real scores until
-`SpendingScoreService.cs` is updated to read from `ScoringCriterion` instead of its hardcoded
-dictionary.
+## Category Correction Log has no joined view for its real endpoint
+
+`GET /api/category-corrections` is real ([Authorize(Roles = "Admin")], paginated, with
+`CreatedAtFrom`/`CreatedAtTo`/`CategoryId` filters — the date-range gap noted in an earlier
+version of this entry is resolved on the backend side). But `CategoryCorrectionResponseDto` only
+returns raw `customerId`/`transactionId`/`correctedCategoryId` GUIDs plus `originalAiGuess` and
+`createdAt` — no join to the customer's email, the transaction's description, or its amount,
+which are this screen's three most important columns (`transactionDescription`, `customerEmail`,
+`amount` in `CategoryCorrectionView`, per project-spec.md Feature E). There's also no admin-
+accessible way to resolve those separately: `TransactionsController` is
+`[Authorize(Roles = "Customer")]` only, and there's no admin customer-lookup-by-id endpoint.
+`src/services/real/category-corrections.ts` stays a stub for this reason — needs either a joined
+DTO on this endpoint, or a dedicated admin transaction/customer lookup.
+
+## User list is missing transaction/wallet counts and subscription plan
+
+`GET /api/users` is real and paginated ([Authorize(Roles = "Admin")], `Page`/`PageSize`/`Search`),
+but `UserResponseDto` only has `customerId, email, fullName, isActive, isEmailVerified,
+createdAt` — no `totalTransactions`, `totalWallets`, or subscription-plan code, which
+project-spec.md Feature C calls for ("row-level counts... for a quick sanity check"). Also no
+`status` (active/locked) server-side filter — only `Search`. `src/services/real/users.ts`
+defaults these three fields (0/0/"free") rather than fabricating a lookup, and the status filter
+dropdown is currently a no-op in real mode. Needs: the counts/plan joined onto this DTO (or a
+per-customer stats endpoint), plus an `isActive` query param.
+
+## No account-reactivation endpoint
+
+`PUT /api/account/deactivate/{customerId}` (Admin) exists and is wired, but it's one-directional
+— there's no matching "reactivate"/"unlock" endpoint anywhere in `finviet-be`. The Users screen's
+"Mở khóa" (unlock) action throws a clear "not implemented" error in real mode rather than
+silently no-op'ing. Needs a `PUT /api/account/activate/{customerId}` (or similar) counterpart.
+
+## Category icon upload exists but is the wrong role for this screen
+
+`POST /api/categories/icons` is real, but `[Authorize(Roles = "Customer")]` — the admin JWT this
+app holds gets a 403 from it. The category "Thêm danh mục" modal's custom `.svg` icon upload
+stays client-side-only (a data URL, nothing persisted) for this reason, same as before this
+endpoint existed. `Category.Icon`/`CategoryInput.customIconDataUrl` still has no real storage
+path for an *admin*-uploaded icon. Needs either an additional `Authorize(Roles = "Admin")` on
+that endpoint (if that's intended) or a separate admin-scoped upload endpoint.
+
+## Scoring weights are now connected to the real score calculation
+
+Resolved — `SpendingScoreService.cs` reads live from `ScoringCriterion` as of `dev`'s
+`0de917a "fix: wire spending score weights to scoring_criteria"`. `GET`/`PATCH
+/api/scoring-criteria` (Admin) are wired in `src/services/real/scoring.ts`; saving on the System
+Configuration → "Trọng số điểm" screen now has a real effect on live scores. (Left this entry as
+a record that it *was* a gap, since the original note is still referenced elsewhere.)
 
 ## Bucket.IsLocked vs. "admin can edit everything"
 
-The real `Bucket` entity has an `IsLocked` column, presumably meant to prevent editing the
-Needs/Wants buckets. Per product direction, the admin frontend now allows editing all three
-buckets (Needs/Wants/Savings) — the lock was removed from the UI. If `IsLocked` is enforced
-server-side once a real Buckets CRUD endpoint ships, editing Needs/Wants from the admin UI will
-fail. Needs a decision: either drop server-side enforcement of `IsLocked` for admin-initiated
-edits, or reintroduce the UI restriction to match.
+Still accurate. The real `Bucket` entity has an `IsLocked` column; `UpdateBucketCommandHandler`
+deliberately does not enforce it ("Admin can edit every bucket, including the locked 'savings'
+row — IsLocked is deliberately not enforced here per product direction"), matching the admin
+frontend's decision to allow editing all three buckets. `GET`/`PATCH /api/buckets` are wired in
+`src/services/real/buckets.ts`, `isLocked` intentionally left out of `AdminBucket`.
 
 ## SubscriptionPlan has no soft-delete field
 
@@ -33,43 +76,22 @@ an `IsActive` (or similar) column on `SubscriptionPlan`, which doesn't exist tod
 plan with live `CustomerSubscription` rows pointing at it would also be a referential-integrity
 problem regardless of the UI decision.
 
-## No storage for custom category icons
-
-The category "Thêm danh mục" modal now supports uploading a custom `.svg` icon (client-side only,
-stored as a data URL for the mock preview — nothing persisted). `Category.Icon` is just a
-string field with no defined format and no upload endpoint. Needs: a file storage endpoint (e.g.
-returns a URL after upload) and a decision on whether `Category.Icon` stores that URL directly or
-a separate asset-reference table is used.
-
 ## Knowledge Base preview needs the real document Uri
 
 The Knowledge Base "Xem trước" (preview) button currently only shows document metadata
 (title/status/chunk count) since there's no real file content available anywhere in the current
-mock/upload flow. The real `RagDocument` entity already has a `Uri` field for this — once
-`POST /api/ai/documents` and a documents-list endpoint back this screen for real, the preview
-should open/embed that `Uri` instead of the metadata-only placeholder.
+flow. `RagDocumentResponse` (backing `GET /api/ai/documents`, now wired in
+`src/services/real/knowledge-base.ts`) already has a `uri` field for this — the preview should
+open/embed that `Uri` instead of the metadata-only placeholder. Not done in this pass, since it's
+a UI change beyond wiring the existing list/upload calls.
 
 ## Knowledge Base delete has no backend endpoint
 
-The Knowledge Base table's `Xóa` (delete) action is disabled in the UI (with a tooltip) since
-`finviet-be`'s `AdminAiController` only exposes `POST`/`GET /api/ai/documents` — no `DELETE`. The
-mutation hook (`useDeleteDocument`), its Route Handler
+Still accurate. The Knowledge Base table's `Xóa` (delete) action is disabled in the UI (with a
+tooltip) since `finviet-be`'s `AdminAiController` only exposes `POST`/`GET /api/ai/documents` —
+no `DELETE`. The mutation hook (`useDeleteDocument`), its Route Handler
 (`src/app/api/knowledge-base/documents/[id]/route.ts`), and the mock service's delete
 implementation are all still intact so mock-mode demo behavior keeps working and re-enabling the
 button is a one-line change once a real `DELETE /api/ai/documents/{id}` exists. Needs: a `DELETE`
 action on `AdminAiController` (Admin role) that removes the `RagDocument` row (and its `RagChunk`
 rows / uploaded file) — no CQRS command exists for this today.
-
-## Category Correction Log date-range filter has nothing to filter
-
-The "7/30/90 ngày qua" date-range select on `/category-corrections` doesn't do anything today —
-even client-side, it was never wired to filter the mock data (only the category filter works).
-Once this screen is backed by a real paginated endpoint, it needs a `createdAt`-range query
-parameter to actually support this.
-
-## Users / Category Correction Log pagination is client-side over the full mock list
-
-Both `/users` and `/category-corrections` currently paginate by slicing an in-memory array on the
-client. Once real endpoints back these lists (especially `/users`, which will have far more than
-40 rows in production), they need real server-side pagination (`page`/`pageSize` query params,
-total-count in the response) rather than the frontend fetching every row up front.

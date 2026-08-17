@@ -14,10 +14,17 @@ function formatFullDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-/** Edge-labeled chart points: only the first and last day get a visible x-axis label. */
+/**
+ * `label` must stay unique per point — it's recharts' XAxis `dataKey` for this category axis,
+ * which it uses to resolve hover position to a data point. A blanked-out `label` on every
+ * non-edge point (the previous approach) collapses them all into one shared category, so
+ * hovering anywhere returns whichever point recharts matches first instead of the one under the
+ * cursor. Edge-only *display* is handled separately by `edgeAwareTick`, keyed off tick index
+ * rather than the label value.
+ */
 export function toChartPoints(data: DailyMetric[]): ChartPoint[] {
-  return data.map((point, index) => ({
-    label: index === 0 || index === data.length - 1 ? formatShortDate(point.date) : "",
+  return data.map((point) => ({
+    label: formatShortDate(point.date),
     fullDate: formatFullDate(point.date),
     value: point.count,
   }));
