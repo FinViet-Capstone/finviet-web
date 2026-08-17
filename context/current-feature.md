@@ -7,28 +7,6 @@ workflow, before starting work on it.)_
 
 <!-- Keep this updated. Earliest to latest -->
 
-- 2026-08-18 — **2FA login: "use a recovery code instead" on the TOTP challenge screen**:
-  Vercel-style UX addition to `/login`'s TOTP challenge step (`src/app/login/totp-step.tsx`),
-  prompted by comparing our screen to Vercel's own 2FA challenge (which offers a "Use a Recovery
-  Code Instead" link alongside the 6-digit input). No backend work needed: better-auth's
-  `twoFactor()` plugin (`src/lib/auth.ts`) composes `backupCode2fa` automatically, so
-  `POST /api/auth/two-factor/verify-backup-code` was already live via the existing `[...all]`
-  catch-all route, just unused until now. `totp-step.tsx` gained a toggle between the existing
-  6-digit TOTP input and a single backup-code text field, wired to a new `useVerifyBackupCode()`
-  hook (`src/hooks/useAdminLogin.ts`, mirroring the existing `useVerifyTotp()`). State
-  (`verifyMode`, `backupCode`) lifted to `page.tsx`, matching how `digits`/`totpError` are already
-  owned there. Enrollment (`enroll-step.tsx`) intentionally untouched — an admin doesn't have
-  backup codes yet during their own enrollment. Deliberately did not build a full self-service
-  "2FA recovery" flow (Vercel's second link) — that's the break-glass admin workflow, already a
-  flagged spec gap in `project-spec.md` Feature A; the existing "Liên hệ quản trị viên khác..."
-  footer text covers that case for now.
-  Verified end-to-end in the browser (logged in as `master` against the real deployed
-  `finviet-be`, reaching the real TOTP challenge): toggle switches correctly between the two
-  input modes with correct instruction copy, submits to the correct endpoint per mode confirmed
-  via network tab (`verify-totp` vs `verify-backup-code`), shows the right mode-specific error
-  banner text on a wrong code (401), and resets cleanly when toggling back. `npm run build` and
-  `npm run lint` both clean. Built on branch `feature/2fa-backup-code-login`.
-
 - 2026-08-15 — **Overview dashboard wired to real analytics + Knowledge Base delete disabled**:
   started from a review of the Knowledge Base admin screen (does it let admins actually control
   AI, should there be a separate "AI" sidebar tab) — conclusion: no new tab needed, since
@@ -353,3 +331,25 @@ workflow, before starting work on it.)_
   (blocks flipping any domain to real), per-domain `USE_MOCK_API` overrides (not needed until the
   first real endpoint lands), and the `backend-web-todos.md` export itself. Built on branch
   `feature/mock-real-api-switch`.
+
+- 2026-08-18 — **2FA login: "use a recovery code instead" on the TOTP challenge screen**:
+  Vercel-style UX addition to `/login`'s TOTP challenge step (`src/app/login/totp-step.tsx`),
+  prompted by comparing our screen to Vercel's own 2FA challenge (which offers a "Use a Recovery
+  Code Instead" link alongside the 6-digit input). No backend work needed: better-auth's
+  `twoFactor()` plugin (`src/lib/auth.ts`) composes `backupCode2fa` automatically, so
+  `POST /api/auth/two-factor/verify-backup-code` was already live via the existing `[...all]`
+  catch-all route, just unused until now. `totp-step.tsx` gained a toggle between the existing
+  6-digit TOTP input and a single backup-code text field, wired to a new `useVerifyBackupCode()`
+  hook (`src/hooks/useAdminLogin.ts`, mirroring the existing `useVerifyTotp()`). State
+  (`verifyMode`, `backupCode`) lifted to `page.tsx`, matching how `digits`/`totpError` are already
+  owned there. Enrollment (`enroll-step.tsx`) intentionally untouched — an admin doesn't have
+  backup codes yet during their own enrollment. Deliberately did not build a full self-service
+  "2FA recovery" flow (Vercel's second link) — that's the break-glass admin workflow, already a
+  flagged spec gap in `project-spec.md` Feature A; the existing "Liên hệ quản trị viên khác..."
+  footer text covers that case for now.
+  Verified end-to-end in the browser (logged in as `master` against the real deployed
+  `finviet-be`, reaching the real TOTP challenge): toggle switches correctly between the two
+  input modes with correct instruction copy, submits to the correct endpoint per mode confirmed
+  via network tab (`verify-totp` vs `verify-backup-code`), shows the right mode-specific error
+  banner text on a wrong code (401), and resets cleanly when toggling back. `npm run build` and
+  `npm run lint` both clean. Built on branch `feature/2fa-backup-code-login`.
