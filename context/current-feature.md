@@ -7,6 +7,64 @@ workflow, before starting work on it.)_
 
 <!-- Keep this updated. Earliest to latest -->
 
+- 2026-08-17 — **5 of the 6 remaining stub domains wired to real `finviet-be`** (Users,
+  Categories, Buckets, Scoring Weights, Knowledge Base) — the last domains left as
+  `throw new Error("Not implemented")` stubs from the 2026-08-14 mock/real API switch. Verified
+  each real endpoint's actual shape against the deployed backend
+  (`https://finviet-be-7t8w.onrender.com/swagger/v1/swagger.json`) and the current `origin/dev`
+  controller source rather than trusting the comments already in these stub files or
+  `context/backend-gaps.md` — both had gone stale in both directions: several "not implemented"
+  domains already had a real endpoint (Buckets, Scoring, Categories list, Knowledge Base list),
+  while `POST /api/categories/icons` turned out to exist but be `[Authorize(Roles = "Customer")]`
+  — a 403 for the admin JWT this app holds, so category icon upload stays mock-only regardless.
+  `context/backend-gaps.md` rewritten to match current reality (added a "check swagger before
+  trusting this doc" note up top).
+  **Buckets, Scoring, Categories**: straightforward CRUD wiring once the DTOs were confirmed
+  (`expenseClass` ↔ `defaultBucket`, both already lowercase `needs`/`wants`/`savings` — no case
+  mapping needed). Scoring's bulk `saveScoringCriteria` fans out into one `PATCH
+  /api/scoring-criteria/{code}` per changed criterion (the real endpoint has no bulk save), with
+  the 100%-per-period sum still validated client-side against the merged full set before any
+  PATCH fires, since three independent single-row updates give the server no atomic place to
+  enforce it.
+  **Knowledge Base**: list + upload wired to `GET`/`POST /api/ai/documents`. `DocumentUploadInput`
+  gained a real `file: File` field — the Route Handler was previously discarding the actual file
+  and only forwarding its name to the (stub) service, even though the upload hook already sent a
+  real `FormData` with the file attached (a leftover from the 2026-08-14 migration). `status` is
+  always `"ready"` in real mode: ingestion is synchronous (`IngestPdfAsync` chunks before
+  returning), so there's no real "processing" state to model, unlike the mock's simulated one.
+  Delete stays stubbed — `AdminAiController` still has no `DELETE`, matching the already-disabled
+  delete button from the 2026-08-15 entry below.
+  **Users**: list wired to `GET /api/users` (real server-side pagination + search). Two real gaps
+  surfaced and were **not** papered over: `UserResponseDto` has no transaction/wallet counts or
+  subscription plan (defaulted to 0/0/"free" — see backend-gaps.md), and there's no server-side
+  `status` filter (the dropdown is a no-op in real mode rather than breaking pagination by
+  filtering a fetched page client-side). Lock wired to `PUT /api/account/deactivate/{id}`; unlock
+  throws a clear "not implemented" error since no reactivation endpoint exists anywhere in
+  `finviet-be`. Password reset wired to the same public `POST /api/auth/forgot-password` the
+  mobile app's own "forgot password" screen uses — this needed a real signature change
+  (`triggerPasswordReset(id, email)`, threaded through `src/services/{mock,real}/users.ts`,
+  the barrel, the Route Handler's Zod body, `useTriggerPasswordReset`, and the Users page's call
+  site) since the real call requires an email finviet-be has no admin id→email lookup for
+  (`UsersController` has no `GET /{id}`) — the Users table already has it client-side per row, so
+  it's threaded through rather than fabricated server-side.
+  **category-corrections was deliberately left stubbed** — see the updated comment in
+  `src/services/real/category-corrections.ts` and its own `backend-gaps.md` entry.
+  `GET /api/category-corrections` is real and paginated, but `CategoryCorrectionResponseDto`
+  only returns raw `customerId`/`transactionId`/`correctedCategoryId` GUIDs with no join to
+  customer email, transaction description, or amount — this screen's three most important
+  columns (table + CSV export + detail modal, per `src/app/(dashboard)/category-corrections/page.tsx`).
+  There's no admin-accessible way to resolve those separately either
+  (`TransactionsController` is `[Authorize(Roles = "Customer")]` only, no admin customer lookup
+  exists). Showing raw GUIDs or fabricated placeholders in place of those columns would be worse
+  than the current explicit error — needs a joined DTO (or a dedicated admin lookup endpoint) on
+  the backend first.
+  `npm install` (node_modules wasn't present in this checkout), `npm run build`, and `npm run
+  lint` all clean. **Not verified live in the browser** — no `.env.local` exists in this
+  checkout (no `FINVIET_API_BASE_URL`, `ADMIN_SHADOW_SECRET`, `BETTER_AUTH_SECRET`, or admin
+  credentials for the deployed Render backend), so an actual login → real-mode round trip
+  couldn't be exercised this session. Built on branch `feature/wire-remaining-admin-services`,
+  off `main`. Not committed/pushed.
+
 - 2026-08-15 — **Overview dashboard wired to real analytics + Knowledge Base delete disabled**:
   started from a review of the Knowledge Base admin screen (does it let admins actually control
   AI, should there be a separate "AI" sidebar tab) — conclusion: no new tab needed, since

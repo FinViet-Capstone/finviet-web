@@ -3,10 +3,7 @@ import { requireAdminSession } from "@/lib/auth";
 import { jsonSuccess, jsonError } from "@/lib/api-response";
 import { listDocuments, uploadDocument } from "@/services/knowledge-base";
 
-const UploadDocumentSchema = z.object({
-  title: z.string().min(1),
-  fileName: z.string().min(1),
-});
+const TitleSchema = z.string().min(1);
 
 export async function GET() {
   try {
@@ -23,11 +20,11 @@ export async function POST(request: Request) {
     await requireAdminSession();
     const formData = await request.formData();
     const file = formData.get("file");
-    const body = UploadDocumentSchema.parse({
-      title: formData.get("title"),
-      fileName: file instanceof File ? file.name : null,
-    });
-    const data = await uploadDocument(body);
+    if (!(file instanceof File)) {
+      throw new Error("Vui lòng chọn tệp để tải lên.");
+    }
+    const title = TitleSchema.parse(formData.get("title"));
+    const data = await uploadDocument({ title, fileName: file.name, file });
     return jsonSuccess(data, 201);
   } catch (err) {
     return jsonError(err);

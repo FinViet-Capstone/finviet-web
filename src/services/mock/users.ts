@@ -80,7 +80,7 @@ export async function setUserActive(id: string, isActive: boolean): Promise<Admi
   return updated;
 }
 
-export async function triggerPasswordReset(id: string): Promise<{ sent: boolean }> {
+export async function triggerPasswordReset(id: string, _email: string): Promise<{ sent: boolean }> {
   await delay();
   const customer = store.get().find((item) => item.id === id);
   if (!customer) throw new Error("Customer not found");

@@ -8,4 +8,5 @@ function impl() {
 
 export const listUsers: typeof mockUsers.listUsers = (params) => impl().listUsers(params);
 export const setUserActive: typeof mockUsers.setUserActive = (id, isActive) => impl().setUserActive(id, isActive);
-export const triggerPasswordReset: typeof mockUsers.triggerPasswordReset = (id) => impl().triggerPasswordReset(id);
+export const triggerPasswordReset: typeof mockUsers.triggerPasswordReset = (id, email) =>
+  impl().triggerPasswordReset(id, email);
