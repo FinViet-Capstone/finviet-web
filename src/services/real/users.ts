@@ -5,14 +5,18 @@ import type { AdminCustomerSummary, ListUsersParams, UsersListResult } from "@/t
 // Backed by finviet-be's UsersController (api/users, GET only) and AccountController
 // (PUT /api/account/deactivate/{id}), both [Authorize(Roles = "Admin")].
 //
-// Two real gaps this can't paper over:
-// - UserResponseDto has no totalTransactions/totalWallets/subscription-plan fields — no admin
-//   endpoint joins those in yet. Defaulted below (0/0/"free") rather than fetched, since there's
-//   no per-customer aggregate endpoint to call. See context/backend-gaps.md.
-// - `status` (active/locked) has no server-side filter — GetUsersQuery only takes
-//   Page/PageSize/Search. Filtering the fetched page client-side would silently break
-//   pagination (total count would no longer match what's actually shown), so status is not
-//   applied in real mode; the filter dropdown is a no-op until the backend adds it.
+// One real gap this can't paper over: UserResponseDto has no totalTransactions/totalWallets/
+// subscription-plan fields — no admin endpoint joins those in yet. Defaulted below (0/0/"free")
+// rather than fetched, since there's no per-customer aggregate endpoint to call. See
+// context/backend-gaps.md.
+//
+// `status` (active/locked) has no server-side filter either — GetUsersQuery only takes
+// Page/PageSize/Search — so when a status filter is active, listUsers below pages through every
+// Search-matching result (finviet-be's max PageSize is 100/request, capped at
+// MAX_STATUS_FILTER_PAGES below to bound the worst case), filters by isActive in Node, and
+// paginates the filtered set itself. Correct at any size that fits under the cap; beyond it,
+// results silently stop growing rather than paginating further — acceptable for today's user
+// counts, but flag this for backend work (a real isActive query param) once it stops being true.
 
 interface UserResponseDto {
   customerId: string;
@@ -57,8 +61,38 @@ function toAdminCustomerSummary(dto: UserResponseDto): AdminCustomerSummary {
   };
 }
 
+const STATUS_FILTER_PAGE_SIZE = 100;
+const MAX_STATUS_FILTER_PAGES = 20; // caps the worst case at 2,000 Search-matching customers
+
+async function fetchAllMatching(search: string | undefined, headers: Record<string, string>): Promise<UserResponseDto[]> {
+  const all: UserResponseDto[] = [];
+  for (let page = 1; page <= MAX_STATUS_FILTER_PAGES; page++) {
+    const res = await finvietApi.get<{ success: boolean; message?: string; data: PagedResultDto<UserResponseDto> }>(
+      "/api/users",
+      { params: { Page: page, PageSize: STATUS_FILTER_PAGE_SIZE, Search: search || undefined }, headers },
+    );
+    const data = unwrap(res);
+    all.push(...(data.items ?? []));
+    if (page >= data.totalPages) break;
+  }
+  return all;
+}
+
 export async function listUsers(params: ListUsersParams): Promise<UsersListResult> {
   const headers = await authHeaders();
+
+  if (params.status && params.status !== "all") {
+    const all = await fetchAllMatching(params.search, headers);
+    const filtered = all.filter((dto) => (params.status === "active" ? dto.isActive : !dto.isActive));
+    const start = (params.page - 1) * params.pageSize;
+    return {
+      items: filtered.slice(start, start + params.pageSize).map(toAdminCustomerSummary),
+      total: filtered.length,
+      page: params.page,
+      pageSize: params.pageSize,
+    };
+  }
+
   const res = await finvietApi.get<{ success: boolean; message?: string; data: PagedResultDto<UserResponseDto> }>(
     "/api/users",
     { params: { Page: params.page, PageSize: params.pageSize, Search: params.search || undefined }, headers },

@@ -1,55 +1,60 @@
 # Current Feature
 
-**Fix silent-failure bug on category creation + comprehensive error-handling audit.** Reported:
-creating a category in the deployed admin (now pointed at real `finviet-be`, following the
-2026-08-17 wiring pass below) fails with a 400 and no visible feedback. Root cause:
-`categories-tab.tsx`'s `handleSave` had no client-side required-field validation and no
-`onError` handler on the `createCategory`/`updateCategory` mutations, and unconditionally called
-`setIsFormOpen(false)` right after firing the mutation regardless of outcome — so any rejection
-(empty name, duplicate name, missing bucket for an expense category, etc.) closed the modal with
-zero feedback. Auditing every other CRUD tab for the same pattern found it repeated in
-`plans-tab.tsx` (identical shape) and a related gap in `users/page.tsx` (no `onError` on
-`setUserActive`/`triggerPasswordReset` — meaning "Mở khóa" now *always* silently fails post the
-2026-08-17 wiring pass, since finviet-be has no reactivation endpoint, but nothing told the admin
-why) and `announcements/page.tsx` (`sendAnnouncement` had no `onError` either, though at least it
-didn't close the confirm modal on failure). `buckets-tab.tsx` and `scoring-tab.tsx` already had
-correct `onError` handling — used as the reference pattern for the fixes below.
-Also investigated the second report — "dashboard chart still shows something when there's no
-transaction/user data" — by pulling live `/api/analytics/summary` and `/api/analytics/trend`
-data directly and reading `AnalyticsController`'s handlers: the underlying data and day-bucketing
-logic are correct (zero-filled per day, no phantom values). Added an explicit empty-state message
-on the Overview trend charts for the genuinely-zero case (a metric's 30-day sum is 0) instead of
-rendering an all-zero chart, since a flat/empty-looking chart with no data at all reads as broken.
-**Follow-up screenshot from the same report showed the real bug**: hovering anywhere on either
-trend chart popped a tooltip for a fixed, wrong date/value (e.g. "20/07/2026, Người dùng mới: 0")
-regardless of cursor x-position, including directly over a visible spike. Root cause in
-`chart-data.ts`'s `toChartPoints`: the edge-labeling design (only the first/last day get visible
-x-axis text) blanked `label` to `""` for every other point — but `label` doubles as
-`<XAxis dataKey="label">` in `signups-chart.tsx`/`transactions-chart.tsx`, and recharts uses that
-field's *value* to resolve hover position on a category axis. With ~28 of 30 points sharing the
-same `""` category, recharts collapsed them into one band and always resolved hover/tooltip to
-whichever point matched first — the second data point, the earliest one with a blank label —
-independent of actual cursor position. Fixed by decoupling the two concerns: `toChartPoints` now
-gives every point a real, unique `label` (its short date — safe since no two dates collide inside
-a ≤365-day contiguous window), and `edge-aware-tick.tsx`'s `EdgeAwareTick` decides what to
-*render* (blank vs. text) purely from tick `index`, independent of the label value itself.
-Also fixed while auditing every CRUD tab for the "does a failed mutation give feedback" question
-this category bug raised: `categories-tab.tsx`'s `handleSave` had no client-side required-field
-validation and no `onError` on `createCategory`/`updateCategory`, and unconditionally closed the
-modal right after firing the mutation regardless of outcome — so a rejection (empty name,
-duplicate name, missing bucket for an expense category, etc.) closed the modal with zero
-feedback, reproduced live against real `finviet-be` (`POST /api/categories` with an empty name →
-`"Category name is required."`, silently swallowed by the old code). The identical pattern
-existed in `plans-tab.tsx`. Two related gaps surfaced too: `users/page.tsx` had no `onError` on
-`setUserActive`/`triggerPasswordReset` — meaning "Mở khóa" now *always* silently fails since the
-2026-08-17 wiring pass made finviet-be's missing reactivation endpoint throw, but nothing told
-the admin why — and `announcements/page.tsx`'s `sendAnnouncement` had no `onError` either (though
-it at least didn't close the confirm modal on failure). `buckets-tab.tsx`/`scoring-tab.tsx`
-already had correct `onError` handling, used as the reference pattern for all of the above.
+**Fix Users status-filter bug + verify the 2026-08-17 fixes landed live.** Reported after the
+previous entry's fix commits were pushed: on `/users`, selecting "Trạng thái: Khóa" still showed
+active-status users instead of locked ones. Root cause, same shape as the tooltip bug two entries
+back: `real/users.ts`'s `listUsers` already knew `GET /api/users` has no server-side `status`
+filter (documented in its own comment) and made the deliberate choice not to apply it — but never
+disabled or hid the filter dropdown in the UI, so it looked functional while silently doing
+nothing. Fixed for real rather than just disabling the control: when `status !== "all"`,
+`listUsers` now pages through every `Search`-matching result from finviet-be (100/request, its
+max), filters by `isActive` in Node, and paginates the filtered set itself — capped at 20 pages
+(2,000 customers) as a documented worst-case bound, since there's still no real `isActive` query
+param to push this down to the backend. Correct at any user count that fits under the cap.
+Also used this pass to confirm the previous entry's fixes actually reached production — Vercel's
+GitHub auto-deploy had silently stopped firing after the first `main` push (no deployment record
+for two subsequent pushes, ~4+ hours apart, despite historically deploying within minutes); the
+user reconnected the Vercel↔GitHub git integration from their dashboard, and an empty trigger
+commit got it deploying again. Verified live post-deploy: the tooltip fix (hover directly on a
+visible spike → correct matching date/value, e.g. "13/08/2026, Người dùng mới: 2"), and swept
+console errors across Overview/Users/System Configuration/Knowledge Base — clean, only
+`category-corrections` and `announcements` still 400 (both intentional, documented stubs with no
+real backend endpoint to wire yet, not regressions).
 
 ## History
 
 <!-- Keep this updated. Earliest to latest -->
+
+- 2026-08-17 — **Fix silent-failure bug on category/plan creation + wrong trend-chart tooltip.**
+  Reported: creating a category in the deployed admin (now pointed at real `finviet-be`) fails
+  with a 400 and no visible feedback. Root cause: `categories-tab.tsx`'s `handleSave` had no
+  client-side required-field validation and no `onError` on `createCategory`/`updateCategory`,
+  and unconditionally closed the modal right after firing the mutation regardless of outcome —
+  reproduced live (`POST /api/categories` with an empty name → `"Category name is required."`,
+  silently swallowed). The identical pattern existed in `plans-tab.tsx`. Two related gaps
+  surfaced auditing every CRUD tab for the same question: `users/page.tsx` had no `onError` on
+  `setUserActive`/`triggerPasswordReset` (meaning "Mở khóa" now *always* silently fails, since
+  finviet-be has no reactivation endpoint, but nothing told the admin why), and
+  `announcements/page.tsx`'s `sendAnnouncement` had no `onError` either. `buckets-tab.tsx`/
+  `scoring-tab.tsx` already had correct `onError` handling, used as the reference pattern for all
+  of the above fixes.
+  Second report — "dashboard chart still shows something when there's no data" — turned out to
+  be two things. The data/day-bucketing itself is correct (verified against live
+  `/api/analytics/summary`/`/trend` and `AnalyticsController`'s handlers); added an explicit
+  empty-state message on the Overview trend charts for the genuinely-zero case instead of
+  rendering an all-zero chart. The real bug, from a follow-up screenshot: hovering anywhere on
+  either trend chart popped a tooltip for a fixed, wrong date/value (e.g.
+  "20/07/2026, Người dùng mới: 0") regardless of cursor position, including directly over a
+  visible spike. Root cause in `chart-data.ts`'s `toChartPoints`: the edge-labeling design (only
+  the first/last day get visible x-axis text) blanked `label` to `""` for every other point — but
+  `label` doubles as `<XAxis dataKey="label">`, and recharts uses that field's *value* to resolve
+  hover position on a category axis. With ~28 of 30 points sharing `""`, recharts collapsed them
+  into one band and always resolved hover to whichever point matched first, independent of actual
+  cursor position. Fixed by decoupling the two concerns: every point now gets a real, unique
+  `label`, and `edge-aware-tick.tsx`'s `EdgeAwareTick` decides what to *render* purely from tick
+  `index`, independent of the label value.
+  Built directly on `main` then moved to branch `fix/admin-web-error-handling` mid-session (should
+  have branched first per the workflow below — corrected once noticed), merged back, pushed.
 
 - 2026-08-17 — **5 of the 6 remaining stub domains wired to real `finviet-be`** (Users,
   Categories, Buckets, Scoring Weights, Knowledge Base) — the last domains left as
