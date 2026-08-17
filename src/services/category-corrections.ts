@@ -3,7 +3,7 @@ import * as mockCorrections from "./mock/category-corrections";
 import * as realCorrections from "./real/category-corrections";
 
 function impl() {
-  return isMockMode() ? mockCorrections : realCorrections;
+  return isMockMode("category-corrections") ? mockCorrections : realCorrections;
 }
 
 export const listCorrections: typeof mockCorrections.listCorrections = (params) => impl().listCorrections(params);

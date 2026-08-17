@@ -1,4 +1,5 @@
 import type { AdminCategory, CategoryInput } from "@/types/categories";
+import { HttpError } from "@/lib/http-error";
 
 // finviet-be's CategoriesController already has real create/update/delete endpoints
 // (POST/PATCH/DELETE /api/categories, [Authorize(Roles = "Admin")]) per
@@ -7,17 +8,17 @@ import type { AdminCategory, CategoryInput } from "@/types/categories";
 // (no storage endpoint exists for uploaded icons, see context/backend-gaps.md).
 
 export async function listCategories(): Promise<AdminCategory[]> {
-  throw new Error("Not implemented: finviet-be has no category list endpoint yet");
+  throw new HttpError(501, "Not implemented: finviet-be has no category list endpoint yet");
 }
 
 export async function createCategory(_input: CategoryInput): Promise<AdminCategory> {
-  throw new Error("Not implemented: category CRUD wiring pending JWT propagation");
+  throw new HttpError(501, "Not implemented: category CRUD wiring pending JWT propagation");
 }
 
 export async function updateCategory(_id: string, _input: CategoryInput): Promise<AdminCategory> {
-  throw new Error("Not implemented: category CRUD wiring pending JWT propagation");
+  throw new HttpError(501, "Not implemented: category CRUD wiring pending JWT propagation");
 }
 
 export async function deleteCategory(_id: string): Promise<{ id: string }> {
-  throw new Error("Not implemented: category CRUD wiring pending JWT propagation");
+  throw new HttpError(501, "Not implemented: category CRUD wiring pending JWT propagation");
 }

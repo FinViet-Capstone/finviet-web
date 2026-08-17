@@ -3,7 +3,7 @@ import * as mockAdmins from "./mock/admins";
 import * as realAdmins from "./real/admins";
 
 function impl() {
-  return isMockMode() ? mockAdmins : realAdmins;
+  return isMockMode("admins") ? mockAdmins : realAdmins;
 }
 
 export const listAdmins: typeof mockAdmins.listAdmins = () => impl().listAdmins();

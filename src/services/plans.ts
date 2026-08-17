@@ -3,7 +3,7 @@ import * as mockPlans from "./mock/plans";
 import * as realPlans from "./real/plans";
 
 function impl() {
-  return isMockMode() ? mockPlans : realPlans;
+  return isMockMode("plans") ? mockPlans : realPlans;
 }
 
 export const listPlans: typeof mockPlans.listPlans = () => impl().listPlans();

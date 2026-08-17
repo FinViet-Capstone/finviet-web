@@ -3,7 +3,7 @@ import * as mockScoring from "./mock/scoring";
 import * as realScoring from "./real/scoring";
 
 function impl() {
-  return isMockMode() ? mockScoring : realScoring;
+  return isMockMode("scoring") ? mockScoring : realScoring;
 }
 
 export const listScoringCriteria: typeof mockScoring.listScoringCriteria = () => impl().listScoringCriteria();

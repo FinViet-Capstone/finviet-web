@@ -3,7 +3,7 @@ import * as mockKnowledgeBase from "./mock/knowledge-base";
 import * as realKnowledgeBase from "./real/knowledge-base";
 
 function impl() {
-  return isMockMode() ? mockKnowledgeBase : realKnowledgeBase;
+  return isMockMode("knowledge-base") ? mockKnowledgeBase : realKnowledgeBase;
 }
 
 export const listDocuments: typeof mockKnowledgeBase.listDocuments = () => impl().listDocuments();
