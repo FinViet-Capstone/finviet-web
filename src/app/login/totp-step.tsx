@@ -6,16 +6,33 @@ import styles from "./login.module.css";
 
 const DIGIT_COUNT = 6;
 
+export type TotpVerifyMode = "totp" | "backup";
+
 interface TotpStepProps {
+  mode: TotpVerifyMode;
   digits: string[];
+  backupCode: string;
   loading: boolean;
   error: boolean;
   onDigitsChange: (digits: string[]) => void;
+  onBackupCodeChange: (code: string) => void;
+  onModeChange: (mode: TotpVerifyMode) => void;
   onSubmit: () => void;
   onBack: () => void;
 }
 
-export function TotpStep({ digits, loading, error, onDigitsChange, onSubmit, onBack }: TotpStepProps) {
+export function TotpStep({
+  mode,
+  digits,
+  backupCode,
+  loading,
+  error,
+  onDigitsChange,
+  onBackupCodeChange,
+  onModeChange,
+  onSubmit,
+  onBack,
+}: TotpStepProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   function handleDigitChange(index: number, rawValue: string) {
@@ -48,32 +65,56 @@ export function TotpStep({ digits, loading, error, onDigitsChange, onSubmit, onB
       {error && (
         <div className={styles.errorBanner}>
           <AlertCircle size={18} strokeWidth={2} />
-          <span>Mã xác thực không đúng</span>
+          <span>{mode === "backup" ? "Mã dự phòng không đúng" : "Mã xác thực không đúng"}</span>
         </div>
       )}
 
-      <p className={styles.instruction}>Nhập mã 6 chữ số từ ứng dụng xác thực của bạn</p>
+      {mode === "totp" ? (
+        <>
+          <p className={styles.instruction}>Nhập mã 6 chữ số từ ứng dụng xác thực của bạn</p>
 
-      <div className={styles.digitsRow}>
-        {digits.map((digit, index) => (
+          <div className={styles.digitsRow}>
+            {digits.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => {
+                  inputRefs.current[index] = el;
+                }}
+                className={`${styles.digitBox} ${error ? styles.digitBoxError : ""}`}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(event) => handleDigitChange(index, event.target.value)}
+                onKeyDown={(event) => handleKeyDown(index, event)}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <label className={styles.field}>
+          <span className={styles.label}>Nhập mã dự phòng đã được cấp khi thiết lập xác thực 2 lớp</span>
           <input
-            key={index}
-            ref={(el) => {
-              inputRefs.current[index] = el;
-            }}
-            className={`${styles.digitBox} ${error ? styles.digitBoxError : ""}`}
+            className={`${styles.input} ${error ? styles.inputError : ""}`}
             type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={digit}
-            onChange={(event) => handleDigitChange(index, event.target.value)}
-            onKeyDown={(event) => handleKeyDown(index, event)}
+            autoComplete="off"
+            placeholder="xxxxx-xxxxx"
+            value={backupCode}
+            onChange={(event) => onBackupCodeChange(event.target.value)}
           />
-        ))}
-      </div>
+        </label>
+      )}
 
       <button type="submit" className={styles.submitButton} disabled={loading}>
         {loading ? <span className={styles.spinner} /> : "Xác minh"}
+      </button>
+
+      <button
+        type="button"
+        className={styles.backLink}
+        onClick={() => onModeChange(mode === "totp" ? "backup" : "totp")}
+      >
+        <span>{mode === "totp" ? "Dùng mã dự phòng thay thế" : "Dùng mã xác thực thay thế"}</span>
       </button>
 
       <button type="button" className={styles.backLink} onClick={onBack}>
