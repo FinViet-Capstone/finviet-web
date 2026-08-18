@@ -26,14 +26,16 @@ DTO on this endpoint, or a dedicated admin transaction/customer lookup.
 
 ## User list is missing transaction/wallet counts and subscription plan
 
-`GET /api/users` is real and paginated ([Authorize(Roles = "Admin")], `Page`/`PageSize`/`Search`),
-but `UserResponseDto` only has `customerId, email, fullName, isActive, isEmailVerified,
-createdAt` — no `totalTransactions`, `totalWallets`, or subscription-plan code, which
-project-spec.md Feature C calls for ("row-level counts... for a quick sanity check"). Also no
-`status` (active/locked) server-side filter — only `Search`. `src/services/real/users.ts`
-defaults these three fields (0/0/"free") rather than fabricating a lookup, and the status filter
-dropdown is currently a no-op in real mode. Needs: the counts/plan joined onto this DTO (or a
-per-customer stats endpoint), plus an `isActive` query param.
+**Partially resolved (2026-08-18):** `UserResponseDto` now has `totalTransactions`, `totalWallets`,
+and `subscriptionPlanCode` (subquery counts + most recent `active` `CustomerSubscription`, joined
+server-side in `GetUsersQueryHandler` — no migration needed, `Transaction`/`Wallet` already carry
+`CustomerId`). Shipped on `finviet-be` branch `fix-dto` (commit `d75ec57`), not yet merged to
+`dev`/deployed as of this note. `src/services/real/users.ts` reads these fields now instead of
+hardcoding 0/0/"free"; `subscriptionPlanCode` (a real code like `"premium_monthly"`) is collapsed
+to the UI's binary free/premium badge since `AdminCustomerSummary.plan` only distinguishes those
+two. **Still open:** no `status` (active/locked) server-side filter — only `Search` — so the
+status filter dropdown still pages through every `Search`-matching result and filters in Node
+(see the comment in `real/users.ts`) rather than a real `isActive` query param.
 
 ## No account-reactivation endpoint
 
