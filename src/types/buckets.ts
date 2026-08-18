@@ -5,6 +5,7 @@ export interface AdminBucket {
   color: string;
   icon: string;
   sortOrder: number;
+  defaultPct: number;
 }
 
 export interface BucketInput {
@@ -13,4 +14,5 @@ export interface BucketInput {
   color: string;
   icon: string;
   sortOrder: number;
+  defaultPct: number;
 }
