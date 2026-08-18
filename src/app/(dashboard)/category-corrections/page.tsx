@@ -5,7 +5,7 @@ import { ArrowRight, Calendar, Download, Filter, Mail, Clock } from "lucide-reac
 import { FormModal } from "@/components/form-modal/form-modal";
 import { getPageNumbers } from "@/lib/pagination";
 import { useCategoryCorrections, exportCategoryCorrections } from "@/hooks/useCategoryCorrections";
-import { correctedCategoryOptions } from "@/services/category-corrections";
+import { useCategories } from "@/hooks/useCategories";
 import type { CategoryCorrectionView, DateRangeFilter } from "@/types/category-corrections";
 import styles from "./category-corrections.module.css";
 
@@ -42,6 +42,15 @@ export default function CategoryCorrectionsPage() {
     page: activePage,
     pageSize: PAGE_SIZE,
   });
+
+  // Sourced from the real category catalog (via the same Route Handler the System
+  // Configuration → Danh mục tab uses) rather than a hardcoded list, since a "corrected
+  // category" is always one of these — a static list would drift from whatever admins have
+  // actually configured. Expense-only: a correction never lands on an income category.
+  const { data: categoriesData } = useCategories();
+  const correctedCategoryOptions = (categoriesData ?? [])
+    .filter((category) => category.type === "expense")
+    .map((category) => category.nameVi || category.name);
 
   const pagedCorrections = data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));

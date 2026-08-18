@@ -1,29 +1,70 @@
 # Current Feature
 
-**Wire Users screen's transaction/wallet/plan counts to the real backend.** Follow-up to the
-"User list is missing transaction/wallet counts and subscription plan" `backend-gaps.md` entry —
-`finviet-be`'s `UserResponseDto` gained `totalTransactions`/`totalWallets`/`subscriptionPlanCode`
-(pushed to that repo's `fix-dto` branch, commit `d75ec57`, not yet merged/deployed).
-`src/services/real/users.ts`'s `UserResponseDto` interface and `toAdminCustomerSummary` updated to
-read the three real fields instead of hardcoding `0/0/"free"`; `subscriptionPlanCode` (a real code
-like `"premium_monthly"`/`"premium_yearly"`) is collapsed to the UI's binary free/premium badge
-since `AdminCustomerSummary.plan` only distinguishes those two. `context/backend-gaps.md`'s entry
-updated to "partially resolved" — the `status` filter's no-server-side-filter gap (separate issue,
-same entry) is untouched.
+**Wire Announcements + Category Corrections to the real backend.** `finviet-be` shipped both
+long-standing gaps in one pass (branch `Announcements-&-Category-Corrections`, commit `8dccd00`,
+merged to `dev`): `POST`/`GET /api/admin/announcements` (fan-out broadcast + history), and a real
+join (`Customer`/`Transaction`/`CorrectedCategory`) on `GET /api/category-corrections`. Both
+`src/services/real/announcements.ts` and `src/services/real/category-corrections.ts` — previously
+`HttpError(501, "Not implemented: ...")` stubs — are now wired. Both domains added to `env.ts`'s
+`REAL_BACKED_DOMAINS`.
+
+**Announcements**: `sendAnnouncement`/`listAnnouncements` call the new endpoints directly.
+`targetAudienceCount` (the pre-send confirm dialog's recipient count) has no dedicated "active
+customer count" endpoint — reuses `GET /api/analytics/summary`'s `activeCustomers` field (the
+Overview dashboard's own source, and the same `IsActive` definition the backend's fan-out itself
+uses), so the confirm count matches what will actually happen rather than being a stale/fabricated
+number.
+
+**Category Corrections**: `listCorrections`/`exportCorrections` read the joined
+`customerEmail`/`transactionDescription`/`amount`/`correctedCategoryName` fields directly. Found
+and fixed a real bug surfaced while wiring this: the category filter dropdown
+(`correctedCategoryOptions`) was a hardcoded 4-name list (`"Cà phê"`, `"Dịch vụ đăng ký"`, ...)
+that doesn't match any name in the actual seeded category catalog (`"Ăn uống"`, `"Di chuyển"`,
+`"Giải trí"`, ... per `finviet-be`'s `V6__normalize_category_buckets.sql`) — 2 of the 4 filter
+options would have silently returned zero results forever in real mode. Fixed architecturally,
+not just by relabeling: `correctedCategoryOptions` was a synchronous, client-bundled export,
+which can never reflect server-side mock/real state (env vars aren't available in the browser
+bundle) — moved the dropdown to source live from `useCategories()` (expense-type only), the same
+already-correctly-wired hook System Configuration's Danh mục tab uses, so it now agrees with
+whatever category catalog is actually live in either mode. This required realigning
+`mock/category-corrections.ts`'s seed category names/colors to match `mock/categories.ts`'s
+actual 4 categories (same fix shape as the 2026-08-05 Scoring Weights entry below, which rewrote
+mock criteria to match the real formula instead of leaving a plausible-looking but wrong mock).
+The real-mode `category` filter param still resolves by *name* (not id) into a real `CategoryId`
+via `GET /api/categories`, fetched fresh per call — this list is small/admin-curated and not worth
+caching.
 
 ## Status
 
-Code complete — `npm run build`/`npm run lint` clean. **Not yet verified live**: the backend
-change this depends on is only on `finviet-be`'s `fix-dto` branch, not merged to `dev` or deployed
-to `https://finviet-be-7t8w.onrender.com` yet, so the deployed admin site keeps returning the old
-DTO shape (fields absent → `undefined` → read as `0`/falls back to `"free"`) until that backend
-branch ships. No regression risk either way — old and new DTO shapes both degrade gracefully
-through this mapping. `users` is already in `env.ts`'s `REAL_BACKED_DOMAINS`, so this takes effect
-immediately wherever `USE_MOCK_API=false` once the backend branch is live.
+Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock mode
+only**: both pages render correctly with no console errors on this worktree's dev server; the
+Category Corrections filter dropdown now shows the corrected mock category names and actually
+filters (confirmed selecting "Ăn uống" narrows the table to only matching rows). **Real mode not
+verified** — no `.env.local` exists in this checkout (no `FINVIET_API_BASE_URL`,
+`ADMIN_SHADOW_SECRET`, `BETTER_AUTH_SECRET`, or admin credentials for the deployed Render
+backend), so an actual login → real-mode round trip against `8dccd00` couldn't be exercised this
+session, same limitation as the 2026-08-17 "5 of 6 remaining stub domains" entry below hit.
 
 ## History
 
 <!-- Keep this updated. Earliest to latest -->
+
+- 2026-08-18 — **Wire Users screen's transaction/wallet/plan counts to the real backend.**
+  Follow-up to the "User list is missing transaction/wallet counts and subscription plan"
+  `backend-gaps.md` entry — `finviet-be`'s `UserResponseDto` gained
+  `totalTransactions`/`totalWallets`/`subscriptionPlanCode` (pushed to that repo's `fix-dto`
+  branch, commit `d75ec57`; merged to `dev` since, per that repo's own history).
+  `src/services/real/users.ts`'s `UserResponseDto` interface and `toAdminCustomerSummary` updated
+  to read the three real fields instead of hardcoding `0/0/"free"`; `subscriptionPlanCode` (a real
+  code like `"premium_monthly"`/`"premium_yearly"`) is collapsed to the UI's binary free/premium
+  badge since `AdminCustomerSummary.plan` only distinguishes those two. `context/backend-gaps.md`'s
+  entry updated to "partially resolved" — the `status` filter's no-server-side-filter gap
+  (separate issue, same entry) is untouched.
+  Code complete — `npm run build`/`npm run lint` clean at the time. **Not verified live in this
+  session**: the backend change this depended on was only on `finviet-be`'s `fix-dto` branch, not
+  yet merged/deployed as of this entry — old and new DTO shapes both degrade gracefully through
+  this mapping either way (fields absent → `undefined` → read as `0`/falls back to `"free"`).
+  `users` was already in `env.ts`'s `REAL_BACKED_DOMAINS`.
 
 - 2026-08-15 — **Overview dashboard wired to real analytics + Knowledge Base delete disabled**:
   started from a review of the Knowledge Base admin screen (does it let admins actually control
