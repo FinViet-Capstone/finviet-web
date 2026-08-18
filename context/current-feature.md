@@ -1,41 +1,79 @@
 # Current Feature
 
-**System-wide default budget allocation ratio (UC-15).** Requested via
-`context/backend-request-default-budget-ratio.md` after confirming the backend had genuinely
-nothing for this — not just a missing endpoint, no schema for it either (`Bucket` had no
-percentage column; `Customer.NeedsPct/WantsPct/SavingsPct`'s `50/30/20` was a hard-coded CLR
-default nothing read back from). `finviet-be` shipped it exactly as proposed (branch
-`AdminBudget`, commit `c8f826c`, merged to `main`): `buckets.default_pct` column,
-`BucketResponse`/`UpdateBucketRequest` extended with `DefaultPct`, and —
-`RegisterCommandHandler`/`GoogleLoginCommandHandler` now read `Bucket.DefaultPct` at signup
-instead of the CLR defaults, scoped to new registrations only (existing customers who already
-customized their ratio via the mobile app are untouched).
-
-Wired the System Configuration → Nhóm ngân sách tab: `AdminBucket`/`BucketInput` gained
-`defaultPct`, `src/services/{real,mock}/buckets.ts` and the `PATCH /api/buckets/[id]` Route
-Handler's Zod schema updated to carry it through. The bucket edit modal
-(`buckets-tab.tsx`) gained a "Tỷ lệ mặc định" (%) field plus a live "Tổng tỷ lệ 3 nhóm: X%"
-readout — validated against the sum of *all 3* buckets (the two unedited buckets' saved values +
-this bucket's draft value), same sum-must-equal-100 shape as the Trọng số điểm tab, and for the
-same reason: the backend doesn't atomically enforce it either (`UpdateBucketCommandHandler` only
-range-checks `0–100` per bucket — 3 independent single-row `PATCH`es give it nowhere to check the
-total), so the Save button stays disabled until the merged set is valid. An inline hint under the
-field states the new-registrations-only scope explicitly so an admin doesn't assume editing this
-retroactively changes anyone's existing budget.
-`context/backend-gaps.md` gained a resolved entry for UC-15, cross-referencing the original
-request doc.
+**Fix: Bucket ratio editor required manually hitting exactly 100% across 3 separate modals.**
+Reported urgently via a screenshot of `finviet-mobile`'s own "Phân bổ ngân sách" screen: its 3
+sliders auto-rebalance each other so the total is always 100% by construction, but the admin
+web's UC-15 editor (previous entry below) required opening each bucket's edit modal separately
+and manually typing a number that happened to make the *other two buckets' already-saved values*
+sum to 100 — genuinely impossible to do cleanly across 3 independent modals without doing the
+arithmetic by hand first.
+Replaced the single-bucket `defaultPct` field (removed from the "Sửa nhóm ngân sách" modal
+entirely, along with its `isTotalValid`/"Tổng tỷ lệ 3 nhóm" gating) with a dedicated "Tỷ lệ ngân
+sách mặc định" card above the bucket list: 3 sliders, one per bucket, that redistribute the
+remaining percentage across the *other two* proportionally to their current draft shares whenever
+one moves (`rebalance()` in `buckets-tab.tsx`) — same UX as the mobile screenshot, total always
+100% by construction, no manual balancing possible even in principle.
+New dedicated save path, mirroring `saveScoringCriteria`'s established shape exactly (that
+function was already the precedent cited in the previous entry's per-bucket version — this fix
+just applies it correctly): `BucketRatioInput` type, `saveBucketDefaultRatios()` in
+`services/{real,mock}/buckets.ts` (validates the merged 3-bucket total server-side-of-the-Route-
+Handler before firing any PATCH, same as `saveScoringCriteria`), a new `PUT /api/buckets/ratios`
+Route Handler + Zod schema, and `useSaveBucketRatios()`. `real/buckets.ts`'s ratio PATCH sends
+only `{ defaultPct }` per bucket (every field on `UpdateBucketRequest` is optional server-side),
+unlike the full-form PATCH the per-bucket modal still uses for name/icon/color/order.
 
 ## Status
 
-Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock mode
-only** (this worktree's dev server, port 3101): the % field renders pre-filled from the mock
-buckets (50/30/20), the total readout updates live and the Save button's `disabled` state
-confirmed via direct DOM check (`true` at 110%, `false` back at 100%), and a real save round-trip
-(mock `PATCH` → 200 → list `GET` refetch → modal closes) confirmed via the network tab. **Real
-mode not verified** — no `.env.local`/admin credentials for the deployed Render backend exist in
-this checkout, same limitation as every other real-mode gap in this file's History.
+Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock mode**
+(this worktree's dev server, port 3102): dragging the Nhu cầu slider from 50%→70% correctly
+rebalanced Mong muốn 30%→18% and Tiết kiệm 20%→12% (proportional to their prior 30:20 split),
+total stayed at exactly 100% throughout, "Lưu tỷ lệ" appeared only once dirty, save round-tripped
+(`PUT /api/buckets/ratios` → 200 → refetch) with no console errors, and the per-bucket "Sửa nhóm
+ngân sách" modal confirmed to no longer show any % field. **Real mode not tested in this pass** —
+the previous entry's real-mode round trip (same underlying `PATCH /api/buckets/{id}` calls, just
+reached via a different UI/mutation path) was already verified live against production; this
+fix's live real-mode confirmation is pending the next deploy.
 
 ## History
+
+- 2026-08-18 — **System-wide default budget allocation ratio (UC-15).** Requested via
+  `context/backend-request-default-budget-ratio.md` after confirming the backend had genuinely
+  nothing for this — not just a missing endpoint, no schema for it either (`Bucket` had no
+  percentage column; `Customer.NeedsPct/WantsPct/SavingsPct`'s `50/30/20` was a hard-coded CLR
+  default nothing read back from). `finviet-be` shipped it exactly as proposed (branch
+  `AdminBudget`, commit `c8f826c`, merged to `main`): `buckets.default_pct` column,
+  `BucketResponse`/`UpdateBucketRequest` extended with `DefaultPct`, and —
+  `RegisterCommandHandler`/`GoogleLoginCommandHandler` now read `Bucket.DefaultPct` at signup
+  instead of the CLR defaults, scoped to new registrations only (existing customers who already
+  customized their ratio via the mobile app are untouched).
+  Wired the System Configuration → Nhóm ngân sách tab: `AdminBucket`/`BucketInput` gained
+  `defaultPct`, `src/services/{real,mock}/buckets.ts` and the `PATCH /api/buckets/[id]` Route
+  Handler's Zod schema updated to carry it through. The bucket edit modal
+  (`buckets-tab.tsx`) gained a "Tỷ lệ mặc định" (%) field plus a live "Tổng tỷ lệ 3 nhóm: X%"
+  readout — validated against the sum of *all 3* buckets (the two unedited buckets' saved values
+  + this bucket's draft value), same sum-must-equal-100 shape as the Trọng số điểm tab, and for
+  the same reason: the backend doesn't atomically enforce it either
+  (`UpdateBucketCommandHandler` only range-checks `0–100` per bucket — 3 independent single-row
+  `PATCH`es give it nowhere to check the total), so the Save button stays disabled until the
+  merged set is valid. An inline hint under the field states the new-registrations-only scope
+  explicitly so an admin doesn't assume editing this retroactively changes anyone's existing
+  budget. `context/backend-gaps.md` gained a resolved entry for UC-15, cross-referencing the
+  original request doc.
+  Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock
+  mode only** (dev server port 3101): the % field renders pre-filled from the mock buckets
+  (50/30/20), the total readout updates live and the Save button's `disabled` state confirmed
+  via direct DOM check (`true` at 110%, `false` back at 100%), and a real save round-trip (mock
+  `PATCH` → 200 → list `GET` refetch → modal closes) confirmed via the network tab. **Later
+  verified live against real production** (`finviet-web.vercel.app`, logged in as `master`) once
+  merged: `GET /api/buckets` confirmed real `defaultPct: 50/30/20`, an edit → invalid-total →
+  Save-disabled → valid-total → Save round trip confirmed via network tab
+  (`PATCH /api/buckets/savings` → 200), no net data change. Announcements/Category Corrections
+  from the entry below were spot-checked live in the same session too: `targetAudienceCount`
+  matched the real active-customer count exactly, and the category filter dropdown showed the
+  real 13-category catalog.
+  UX problem found immediately after by the user (see the entry above this one, which fixes it):
+  editing one bucket's % in isolation while the other two stayed at their old saved values made
+  hitting exactly 100% across 3 separate modal opens impractical in practice.
 
 - 2026-08-18 — **Wire Announcements + Category Corrections to the real backend.** `finviet-be`
   shipped both long-standing gaps in one pass (branch `Announcements-&-Category-Corrections`,
