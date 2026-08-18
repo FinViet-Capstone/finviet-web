@@ -1,7 +1,25 @@
 # Current Feature
 
-_(None right now — document the next feature/fix here, per `context/ai-interaction.md`'s
-workflow, before starting work on it.)_
+**Wire Users screen's transaction/wallet/plan counts to the real backend.** Follow-up to the
+"User list is missing transaction/wallet counts and subscription plan" `backend-gaps.md` entry —
+`finviet-be`'s `UserResponseDto` gained `totalTransactions`/`totalWallets`/`subscriptionPlanCode`
+(pushed to that repo's `fix-dto` branch, commit `d75ec57`, not yet merged/deployed).
+`src/services/real/users.ts`'s `UserResponseDto` interface and `toAdminCustomerSummary` updated to
+read the three real fields instead of hardcoding `0/0/"free"`; `subscriptionPlanCode` (a real code
+like `"premium_monthly"`/`"premium_yearly"`) is collapsed to the UI's binary free/premium badge
+since `AdminCustomerSummary.plan` only distinguishes those two. `context/backend-gaps.md`'s entry
+updated to "partially resolved" — the `status` filter's no-server-side-filter gap (separate issue,
+same entry) is untouched.
+
+## Status
+
+Code complete — `npm run build`/`npm run lint` clean. **Not yet verified live**: the backend
+change this depends on is only on `finviet-be`'s `fix-dto` branch, not merged to `dev` or deployed
+to `https://finviet-be-7t8w.onrender.com` yet, so the deployed admin site keeps returning the old
+DTO shape (fields absent → `undefined` → read as `0`/falls back to `"free"`) until that backend
+branch ships. No regression risk either way — old and new DTO shapes both degrade gracefully
+through this mapping. `users` is already in `env.ts`'s `REAL_BACKED_DOMAINS`, so this takes effect
+immediately wherever `USE_MOCK_API=false` once the backend branch is live.
 
 ## History
 

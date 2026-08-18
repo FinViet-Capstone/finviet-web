@@ -5,10 +5,11 @@ import type { AdminCustomerSummary, ListUsersParams, UsersListResult } from "@/t
 // Backed by finviet-be's UsersController (api/users, GET only) and AccountController
 // (PUT /api/account/deactivate/{id}), both [Authorize(Roles = "Admin")].
 //
-// One real gap this can't paper over: UserResponseDto has no totalTransactions/totalWallets/
-// subscription-plan fields — no admin endpoint joins those in yet. Defaulted below (0/0/"free")
-// rather than fetched, since there's no per-customer aggregate endpoint to call. See
-// context/backend-gaps.md.
+// UserResponseDto's totalTransactions/totalWallets/subscriptionPlanCode (added on the fix-dto
+// branch — see context/backend-gaps.md) are subquery counts joined server-side, not a full
+// per-customer aggregate endpoint. subscriptionPlanCode is a real plan code ("free",
+// "premium_monthly", "premium_yearly", ...) — collapsed to the UI's binary free/premium badge in
+// toAdminCustomerSummary below, since AdminCustomerSummary.plan only distinguishes those two.
 //
 // `status` (active/locked) has no server-side filter either — GetUsersQuery only takes
 // Page/PageSize/Search — so when a status filter is active, listUsers below pages through every
@@ -25,6 +26,9 @@ interface UserResponseDto {
   isActive: boolean;
   isEmailVerified: boolean;
   createdAt: string | null;
+  totalTransactions: number;
+  totalWallets: number;
+  subscriptionPlanCode: string | null;
 }
 
 interface PagedResultDto<T> {
@@ -55,9 +59,9 @@ function toAdminCustomerSummary(dto: UserResponseDto): AdminCustomerSummary {
     email: dto.email ?? "",
     isActive: dto.isActive,
     createdAt: formatCreatedAt(dto.createdAt),
-    totalTransactions: 0,
-    totalWallets: 0,
-    plan: "free",
+    totalTransactions: dto.totalTransactions,
+    totalWallets: dto.totalWallets,
+    plan: dto.subscriptionPlanCode && dto.subscriptionPlanCode !== "free" ? "premium" : "free",
   };
 }
 
