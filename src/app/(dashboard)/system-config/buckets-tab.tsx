@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Save } from "lucide-react";
 import { FormModal } from "@/components/form-modal/form-modal";
-import { useBuckets, useUpdateBucket } from "@/hooks/useBuckets";
+import { useBuckets, useSaveBucketRatios, useUpdateBucket } from "@/hooks/useBuckets";
 import type { AdminBucket, BucketInput } from "@/types/buckets";
 import { bucketIconOptions, iconForBucket } from "./bucket-ui-options";
 import styles from "./system-config.module.css";
@@ -15,29 +15,84 @@ function toFormState(bucket: AdminBucket): BucketFormState {
   return { nameVi, nameEn, color, icon, sortOrder, defaultPct };
 }
 
+// Redistributes `100 - changedValue` across the other buckets proportionally to their current
+// draft shares (not their original saved values, so repeated drags on the same slider keep
+// rebalancing sensibly) — same "one slider moves, the rest absorb the difference" UX as the
+// mobile app's Phân bổ ngân sách screen, so the total is always 100% by construction and there's
+// nothing for the admin to hand-balance across 3 separate edits.
+function rebalance(
+  draft: Record<string, number>,
+  orderedIds: string[],
+  changedId: string,
+  changedValue: number
+): Record<string, number> {
+  const value = Math.min(100, Math.max(0, Math.round(changedValue)));
+  const otherIds = orderedIds.filter((id) => id !== changedId);
+  const next: Record<string, number> = { ...draft, [changedId]: value };
+  const remaining = 100 - value;
+
+  if (otherIds.length === 0) return next;
+
+  const otherSum = otherIds.reduce((sum, id) => sum + draft[id], 0);
+  let allocated = 0;
+  otherIds.forEach((id, index) => {
+    const isLast = index === otherIds.length - 1;
+    if (isLast) {
+      next[id] = Math.max(0, remaining - allocated);
+      return;
+    }
+    const share = otherSum > 0 ? Math.round((remaining * draft[id]) / otherSum) : Math.round(remaining / otherIds.length);
+    next[id] = Math.max(0, share);
+    allocated += next[id];
+  });
+
+  return next;
+}
+
 export function BucketsTab() {
   const { data: buckets = [], isLoading, isError } = useBuckets();
   const updateBucket = useUpdateBucket();
+  const saveBucketRatios = useSaveBucketRatios();
 
   const [editingBucket, setEditingBucket] = useState<AdminBucket | null>(null);
   const [form, setForm] = useState<BucketFormState | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Tổng 3 nhóm (2 nhóm còn lại theo giá trị đã lưu + nhóm đang sửa theo form) phải = 100%,
-  // giống cách validate tổng trọng số ở tab Trọng số điểm — backend không tự kiểm tra tổng vì
-  // mỗi PATCH chỉ sửa 1 dòng độc lập, không có chỗ nào ở server để cộng dồn.
-  const totalDefaultPct = editingBucket && form
-    ? buckets.reduce(
-        (sum, item) => sum + (item.id === editingBucket.id ? form.defaultPct : item.defaultPct),
-        0
-      )
-    : 0;
-  const isTotalValid = totalDefaultPct === 100;
+  // Ratio editor: a local draft synced once from the server, independent of the per-bucket
+  // name/icon/color/order modal above — state update during render instead of an effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect.
+  const [draftPct, setDraftPct] = useState<Record<string, number>>({});
+  const [isRatioSynced, setIsRatioSynced] = useState(false);
+  const [ratioError, setRatioError] = useState<string | null>(null);
+  if (!isRatioSynced && buckets.length > 0) {
+    setIsRatioSynced(true);
+    setDraftPct(Object.fromEntries(buckets.map((bucket) => [bucket.id, bucket.defaultPct])));
+  }
+
+  const bucketIds = buckets.map((bucket) => bucket.id);
+  const isRatioDirty = buckets.some((bucket) => draftPct[bucket.id] !== bucket.defaultPct);
+  const ratioTotal = buckets.reduce((sum, bucket) => sum + (draftPct[bucket.id] ?? 0), 0);
 
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 3000);
+  }
+
+  function handleSliderChange(id: string, value: number) {
+    setRatioError(null);
+    setDraftPct((prev) => rebalance(prev, bucketIds, id, value));
+  }
+
+  function handleSaveRatios() {
+    setRatioError(null);
+    saveBucketRatios.mutate(
+      buckets.map((bucket) => ({ id: bucket.id, defaultPct: draftPct[bucket.id] })),
+      {
+        onSuccess: () => showToast("Đã lưu tỷ lệ ngân sách mặc định"),
+        onError: (err) => setRatioError(err instanceof Error ? err.message : "Không thể lưu tỷ lệ ngân sách."),
+      }
+    );
   }
 
   function openEditForm(bucket: AdminBucket) {
@@ -57,8 +112,6 @@ export function BucketsTab() {
       return;
     }
 
-    if (!isTotalValid) return;
-
     updateBucket.mutate(
       { id: editingBucket.id, input: form },
       {
@@ -74,6 +127,51 @@ export function BucketsTab() {
 
   return (
     <div className={styles.tabPanel}>
+      {buckets.length > 0 ? (
+        <div className={styles.ratioCard}>
+          <div className={styles.ratioHeader}>
+            <div>
+              <p className={styles.ratioTitle}>Tỷ lệ ngân sách mặc định</p>
+              <p className={styles.hint}>
+                Áp dụng cho khách hàng đăng ký mới — không ảnh hưởng tỷ lệ của khách hàng hiện tại.
+              </p>
+            </div>
+            <span className={ratioTotal === 100 ? styles.totalOk : styles.totalError}>Tổng: {ratioTotal}%</span>
+          </div>
+
+          {buckets.map((bucket) => (
+            <div key={bucket.id} className={styles.ratioRow}>
+              <span className={styles.ratioLabel} style={{ color: bucket.color }}>
+                {bucket.nameVi}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={draftPct[bucket.id] ?? 0}
+                onChange={(event) => handleSliderChange(bucket.id, Number(event.target.value))}
+                className={styles.ratioSlider}
+                style={{
+                  accentColor: bucket.color,
+                  background: `linear-gradient(to right, ${bucket.color} ${draftPct[bucket.id] ?? 0}%, var(--color-border) ${draftPct[bucket.id] ?? 0}%)`,
+                }}
+                aria-label={`Tỷ lệ ${bucket.nameVi}`}
+              />
+              <span className={styles.ratioValue}>{draftPct[bucket.id] ?? 0}%</span>
+            </div>
+          ))}
+
+          {ratioError ? <p className={styles.fieldError}>{ratioError}</p> : null}
+
+          {isRatioDirty ? (
+            <button type="button" className={styles.saveButton} onClick={handleSaveRatios}>
+              <Save size={16} strokeWidth={2} />
+              Lưu tỷ lệ
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className={styles.bucketList}>
         {isLoading ? <p className={styles.bucketOrder}>Đang tải…</p> : null}
         {isError ? <p className={styles.bucketOrder}>Không thể tải nhóm ngân sách.</p> : null}
@@ -125,12 +223,7 @@ export function BucketsTab() {
               >
                 Hủy
               </button>
-              <button
-                type="button"
-                className={styles.confirmButton}
-                disabled={!isTotalValid}
-                onClick={handleSave}
-              >
+              <button type="button" className={styles.confirmButton} onClick={handleSave}>
                 Lưu
               </button>
             </>
@@ -190,29 +283,6 @@ export function BucketsTab() {
             />
             {orderError ? <span className={styles.fieldError}>{orderError}</span> : null}
           </label>
-          <label className={styles.field}>
-            <span className={styles.label}>Tỷ lệ mặc định</span>
-            <span className={styles.weightCell}>
-              <input
-                type="number"
-                step={5}
-                min={0}
-                max={100}
-                className={styles.weightInput}
-                value={form.defaultPct}
-                onChange={(event) =>
-                  setForm((prev) => (prev ? { ...prev, defaultPct: Number(event.target.value) } : prev))
-                }
-              />
-              %
-            </span>
-          </label>
-          <p className={styles.hint}>
-            Áp dụng cho khách hàng đăng ký mới — không ảnh hưởng tỷ lệ của khách hàng hiện tại.
-          </p>
-          <span className={isTotalValid ? styles.totalOk : styles.totalError}>
-            Tổng tỷ lệ 3 nhóm: {totalDefaultPct}% {isTotalValid ? "" : "(phải bằng 100%)"}
-          </span>
         </FormModal>
       ) : null}
 

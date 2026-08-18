@@ -8,3 +8,5 @@ function impl() {
 
 export const listBuckets: typeof mockBuckets.listBuckets = () => impl().listBuckets();
 export const updateBucket: typeof mockBuckets.updateBucket = (id, input) => impl().updateBucket(id, input);
+export const saveBucketDefaultRatios: typeof mockBuckets.saveBucketDefaultRatios = (inputs) =>
+  impl().saveBucketDefaultRatios(inputs);

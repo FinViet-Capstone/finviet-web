@@ -1,6 +1,6 @@
 import { finvietApi, unwrap } from "@/lib/finviet-api";
 import { getFinvietAdminToken } from "@/lib/finviet-admin-token";
-import type { AdminBucket, BucketInput } from "@/types/buckets";
+import type { AdminBucket, BucketInput, BucketRatioInput } from "@/types/buckets";
 
 // Backed by finviet-be's BucketsController (api/buckets), [Authorize(Roles = "Admin")].
 
@@ -54,4 +54,37 @@ export async function updateBucket(id: string, input: BucketInput): Promise<Admi
     { headers },
   );
   return toAdminBucket(unwrap(res));
+}
+
+// UpdateBucketRequest's fields are all optional server-side, so each PATCH here only sends
+// defaultPct — same shape as saveScoringCriteria in real/scoring.ts (finviet-be has no bulk-save
+// endpoint for either). The 100%-total check runs here, against the merged (current + incoming)
+// full set, before any PATCH fires — three independent single-bucket updates give the server no
+// atomic place to enforce "the whole set must sum to 100".
+export async function saveBucketDefaultRatios(inputs: BucketRatioInput[]): Promise<AdminBucket[]> {
+  const current = await listBuckets();
+  const merged = current.map((bucket) => {
+    const input = inputs.find((item) => item.id === bucket.id);
+    return input ? { ...bucket, defaultPct: input.defaultPct } : bucket;
+  });
+
+  const total = merged.reduce((sum, bucket) => sum + bucket.defaultPct, 0);
+  if (total !== 100) {
+    throw new Error("Tổng tỷ lệ 3 nhóm phải bằng 100%.");
+  }
+
+  const headers = await authHeaders();
+  const updated = await Promise.all(
+    inputs.map(async (input) => {
+      const res = await finvietApi.patch<{ success: boolean; message?: string; data: BucketResponseDto }>(
+        `/api/buckets/${input.id}`,
+        { defaultPct: input.defaultPct },
+        { headers },
+      );
+      return toAdminBucket(unwrap(res));
+    }),
+  );
+
+  const byId = new Map(updated.map((bucket) => [bucket.id, bucket]));
+  return merged.map((bucket) => byId.get(bucket.id) ?? bucket);
 }

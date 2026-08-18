@@ -1,4 +1,4 @@
-import type { AdminBucket, BucketInput } from "@/types/buckets";
+import type { AdminBucket, BucketInput, BucketRatioInput } from "@/types/buckets";
 import { createDevStore } from "./dev-store";
 import { delay } from "./delay";
 
@@ -28,5 +28,22 @@ export async function updateBucket(id: string, input: BucketInput): Promise<Admi
   const next = [...buckets];
   next[index] = updated;
   store.set(next);
+  return updated;
+}
+
+export async function saveBucketDefaultRatios(inputs: BucketRatioInput[]): Promise<AdminBucket[]> {
+  await delay();
+  const current = store.get();
+  const updated = current.map((bucket) => {
+    const input = inputs.find((item) => item.id === bucket.id);
+    return input ? { ...bucket, defaultPct: input.defaultPct } : bucket;
+  });
+
+  const total = updated.reduce((sum, bucket) => sum + bucket.defaultPct, 0);
+  if (total !== 100) {
+    throw new Error("Tổng tỷ lệ 3 nhóm phải bằng 100%.");
+  }
+
+  store.set(updated);
   return updated;
 }
