@@ -8,13 +8,17 @@ import type {
 import { createDevStore } from "./dev-store";
 import { delay } from "./delay";
 
-export const correctedCategoryOptions = ["Cà phê", "Giải trí", "Dịch vụ đăng ký", "Di chuyển"];
+// Matches mock/categories.ts's 4 expense categories exactly, since the real UI now sources its
+// filter dropdown from GET /api/categories (see the category-corrections page) rather than a
+// hardcoded list — these names have to actually exist in the mock category catalog for the
+// dropdown/filter to agree with each other in mock mode.
+const correctedCategoryOptions = ["Ăn uống", "Di chuyển", "Nhà ở", "Giải trí"];
 
 const categoryColorByName: Record<string, string> = {
-  "Cà phê": "#f97316",
+  "Ăn uống": "#f97316",
+  "Di chuyển": "#2563eb",
+  "Nhà ở": "#64748b",
   "Giải trí": "#8b5cf6",
-  "Dịch vụ đăng ký": "#2563eb",
-  "Di chuyển": "#10b981",
 };
 
 const seeds: { desc: string; aiGuess: string }[] = [

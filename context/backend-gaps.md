@@ -12,17 +12,30 @@ being updated. Before trusting an entry here, check the real endpoint against
 
 ## Category Correction Log has no joined view for its real endpoint
 
-`GET /api/category-corrections` is real ([Authorize(Roles = "Admin")], paginated, with
-`CreatedAtFrom`/`CreatedAtTo`/`CategoryId` filters — the date-range gap noted in an earlier
-version of this entry is resolved on the backend side). But `CategoryCorrectionResponseDto` only
-returns raw `customerId`/`transactionId`/`correctedCategoryId` GUIDs plus `originalAiGuess` and
-`createdAt` — no join to the customer's email, the transaction's description, or its amount,
-which are this screen's three most important columns (`transactionDescription`, `customerEmail`,
-`amount` in `CategoryCorrectionView`, per project-spec.md Feature E). There's also no admin-
-accessible way to resolve those separately: `TransactionsController` is
-`[Authorize(Roles = "Customer")]` only, and there's no admin customer-lookup-by-id endpoint.
-`src/services/real/category-corrections.ts` stays a stub for this reason — needs either a joined
-DTO on this endpoint, or a dedicated admin transaction/customer lookup.
+**Resolved (2026-08-18).** `GetCategoryCorrectionsQueryHandler` now `.Include()`s
+`Customer`/`Transaction`/`CorrectedCategory`, and `CategoryCorrectionResponseDto` carries
+`customerEmail`/`transactionDescription`/`amount`/`correctedCategoryName` directly (branch
+`Announcements-&-Category-Corrections`, commit `8dccd00`, merged to `dev`). `src/services/real/
+category-corrections.ts` is wired: reads the joined fields for its three main columns, and
+separately resolves the category *filter dropdown's* name → id (via `GET /api/categories`, since
+the dropdown still operates on names) before sending it as the `CategoryId` query param. The
+filter dropdown itself is no longer a hardcoded 4-name list — it now reads real category names
+from `GET /api/categories` (`useCategories()`), since the old hardcoded list
+(`"Cà phê"`/`"Dịch vụ đăng ký"`) didn't match any category in the actual seeded catalog
+(`"Ăn uống"`, `"Di chuyển"`, `"Giải trí"`, ... per `V6__normalize_category_buckets.sql`) and would
+have silently returned zero results for 2 of its 4 options.
+
+## Announcements has no broadcast/fan-out endpoint
+
+**Resolved (2026-08-18).** New `POST`/`GET /api/admin/announcements` (`AdminAnnouncementsController`,
+`[Authorize(Roles = "Admin")]`, same branch/commit as above) — `POST` fans a `Notification` row out
+to every `IsActive` customer in a batched transaction and records one `AnnouncementBroadcast`
+history row; `GET` lists past broadcasts, paginated, newest first. `src/services/real/
+announcements.ts` is wired: `sendAnnouncement`/`listAnnouncements` call these directly.
+`targetAudienceCount` (shown in the pre-send confirmation dialog) has no dedicated "active
+customer count" endpoint to call, so it reuses `GET /api/analytics/summary`'s `activeCustomers`
+field (the Overview dashboard's own source) — the same `IsActive` definition the backend fan-out
+itself uses, so the confirm-dialog count matches what will actually happen.
 
 ## User list is missing transaction/wallet counts and subscription plan
 

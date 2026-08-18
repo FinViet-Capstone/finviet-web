@@ -9,5 +9,3 @@ function impl() {
 export const listCorrections: typeof mockCorrections.listCorrections = (params) => impl().listCorrections(params);
 export const exportCorrections: typeof mockCorrections.exportCorrections = (params) =>
   impl().exportCorrections(params);
-
-export const correctedCategoryOptions = mockCorrections.correctedCategoryOptions;
