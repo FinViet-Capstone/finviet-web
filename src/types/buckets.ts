@@ -16,3 +16,8 @@ export interface BucketInput {
   sortOrder: number;
   defaultPct: number;
 }
+
+export interface BucketRatioInput {
+  id: string;
+  defaultPct: number;
+}
