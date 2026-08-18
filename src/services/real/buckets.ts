@@ -14,6 +14,10 @@ interface BucketResponseDto {
   // IsLocked is real but deliberately not surfaced — per product direction (see
   // context/backend-gaps.md) admins can edit every bucket, including "savings".
   isLocked: boolean;
+  // System-wide default Needs/Wants/Savings % (UC-15) — only affects customers who register
+  // *after* a change; RegisterCommandHandler/GoogleLoginCommandHandler read this at signup
+  // instead of the old hard-coded 50/30/20 CLR defaults, existing customers untouched.
+  defaultPct: number | null;
 }
 
 async function authHeaders() {
@@ -29,6 +33,7 @@ function toAdminBucket(dto: BucketResponseDto): AdminBucket {
     color: dto.color,
     icon: dto.icon,
     sortOrder: dto.sortOrder,
+    defaultPct: dto.defaultPct ?? 0,
   };
 }
 

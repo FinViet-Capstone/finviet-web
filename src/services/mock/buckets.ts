@@ -3,9 +3,9 @@ import { createDevStore } from "./dev-store";
 import { delay } from "./delay";
 
 const store = createDevStore<AdminBucket[]>("buckets", () => [
-  { id: "needs", nameVi: "Nhu cầu", nameEn: "Needs", color: "#2563eb", icon: "home", sortOrder: 1 },
-  { id: "wants", nameVi: "Mong muốn", nameEn: "Wants", color: "#8b5cf6", icon: "sparkles", sortOrder: 2 },
-  { id: "savings", nameVi: "Tiết kiệm", nameEn: "Savings", color: "#10b981", icon: "piggy-bank", sortOrder: 3 },
+  { id: "needs", nameVi: "Nhu cầu", nameEn: "Needs", color: "#2563eb", icon: "home", sortOrder: 1, defaultPct: 50 },
+  { id: "wants", nameVi: "Mong muốn", nameEn: "Wants", color: "#8b5cf6", icon: "sparkles", sortOrder: 2, defaultPct: 30 },
+  { id: "savings", nameVi: "Tiết kiệm", nameEn: "Savings", color: "#10b981", icon: "piggy-bank", sortOrder: 3, defaultPct: 20 },
 ]);
 
 export async function listBuckets(): Promise<AdminBucket[]> {

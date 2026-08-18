@@ -10,6 +10,25 @@ being updated. Before trusting an entry here, check the real endpoint against
 `https://finviet-be-7t8w.onrender.com/swagger/v1/swagger.json` (or the `dev` branch's
 `Controllers/`) rather than assuming this doc is current.
 
+## No system-wide default budget allocation ratio (UC-15)
+
+**Resolved (2026-08-18).** UC-15 ("admin updates the system's default budget allocation ratio")
+had no backing anywhere — not just a missing endpoint, the whole concept didn't exist: `Bucket`
+had no percentage column, and `Customer.NeedsPct/WantsPct/SavingsPct`'s `50/30/20` was a hard-coded
+CLR default nothing read back from. See `context/backend-request-default-budget-ratio.md` for the
+original request. `finviet-be` (branch `AdminBudget`, commit `c8f826c`, merged to `main`) added
+`buckets.default_pct`, extended `BucketResponse`/`UpdateBucketRequest` with `DefaultPct`, and —
+the part that actually makes it do something — `RegisterCommandHandler`/
+`GoogleLoginCommandHandler` now read `Bucket.DefaultPct` when creating a new `Customer` instead of
+relying on the CLR defaults. Scoped to new registrations only, exactly as requested: existing
+customers who already customized their own ratio via `POST /api/profile/income-allocation` are
+untouched.
+`src/services/{real,mock}/buckets.ts` wired (`AdminBucket`/`BucketInput` gained `defaultPct`); the
+Bucket edit modal (`buckets-tab.tsx`) gained a "Tỷ lệ mặc định" field with the same
+sum-must-equal-100 client-side validation as Scoring Weights (no atomic server-side check either,
+same reason — 3 independent single-bucket `PATCH`es), plus an inline note clarifying the
+new-registrations-only scope so the admin doesn't assume it's retroactive.
+
 ## Category Correction Log has no joined view for its real endpoint
 
 **Resolved (2026-08-18).** `GetCategoryCorrectionsQueryHandler` now `.Include()`s

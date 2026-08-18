@@ -1,49 +1,79 @@
 # Current Feature
 
-**Wire Announcements + Category Corrections to the real backend.** `finviet-be` shipped both
-long-standing gaps in one pass (branch `Announcements-&-Category-Corrections`, commit `8dccd00`,
-merged to `dev`): `POST`/`GET /api/admin/announcements` (fan-out broadcast + history), and a real
-join (`Customer`/`Transaction`/`CorrectedCategory`) on `GET /api/category-corrections`. Both
-`src/services/real/announcements.ts` and `src/services/real/category-corrections.ts` — previously
-`HttpError(501, "Not implemented: ...")` stubs — are now wired. Both domains added to `env.ts`'s
-`REAL_BACKED_DOMAINS`.
+**System-wide default budget allocation ratio (UC-15).** Requested via
+`context/backend-request-default-budget-ratio.md` after confirming the backend had genuinely
+nothing for this — not just a missing endpoint, no schema for it either (`Bucket` had no
+percentage column; `Customer.NeedsPct/WantsPct/SavingsPct`'s `50/30/20` was a hard-coded CLR
+default nothing read back from). `finviet-be` shipped it exactly as proposed (branch
+`AdminBudget`, commit `c8f826c`, merged to `main`): `buckets.default_pct` column,
+`BucketResponse`/`UpdateBucketRequest` extended with `DefaultPct`, and —
+`RegisterCommandHandler`/`GoogleLoginCommandHandler` now read `Bucket.DefaultPct` at signup
+instead of the CLR defaults, scoped to new registrations only (existing customers who already
+customized their ratio via the mobile app are untouched).
 
-**Announcements**: `sendAnnouncement`/`listAnnouncements` call the new endpoints directly.
-`targetAudienceCount` (the pre-send confirm dialog's recipient count) has no dedicated "active
-customer count" endpoint — reuses `GET /api/analytics/summary`'s `activeCustomers` field (the
-Overview dashboard's own source, and the same `IsActive` definition the backend's fan-out itself
-uses), so the confirm count matches what will actually happen rather than being a stale/fabricated
-number.
-
-**Category Corrections**: `listCorrections`/`exportCorrections` read the joined
-`customerEmail`/`transactionDescription`/`amount`/`correctedCategoryName` fields directly. Found
-and fixed a real bug surfaced while wiring this: the category filter dropdown
-(`correctedCategoryOptions`) was a hardcoded 4-name list (`"Cà phê"`, `"Dịch vụ đăng ký"`, ...)
-that doesn't match any name in the actual seeded category catalog (`"Ăn uống"`, `"Di chuyển"`,
-`"Giải trí"`, ... per `finviet-be`'s `V6__normalize_category_buckets.sql`) — 2 of the 4 filter
-options would have silently returned zero results forever in real mode. Fixed architecturally,
-not just by relabeling: `correctedCategoryOptions` was a synchronous, client-bundled export,
-which can never reflect server-side mock/real state (env vars aren't available in the browser
-bundle) — moved the dropdown to source live from `useCategories()` (expense-type only), the same
-already-correctly-wired hook System Configuration's Danh mục tab uses, so it now agrees with
-whatever category catalog is actually live in either mode. This required realigning
-`mock/category-corrections.ts`'s seed category names/colors to match `mock/categories.ts`'s
-actual 4 categories (same fix shape as the 2026-08-05 Scoring Weights entry below, which rewrote
-mock criteria to match the real formula instead of leaving a plausible-looking but wrong mock).
-The real-mode `category` filter param still resolves by *name* (not id) into a real `CategoryId`
-via `GET /api/categories`, fetched fresh per call — this list is small/admin-curated and not worth
-caching.
+Wired the System Configuration → Nhóm ngân sách tab: `AdminBucket`/`BucketInput` gained
+`defaultPct`, `src/services/{real,mock}/buckets.ts` and the `PATCH /api/buckets/[id]` Route
+Handler's Zod schema updated to carry it through. The bucket edit modal
+(`buckets-tab.tsx`) gained a "Tỷ lệ mặc định" (%) field plus a live "Tổng tỷ lệ 3 nhóm: X%"
+readout — validated against the sum of *all 3* buckets (the two unedited buckets' saved values +
+this bucket's draft value), same sum-must-equal-100 shape as the Trọng số điểm tab, and for the
+same reason: the backend doesn't atomically enforce it either (`UpdateBucketCommandHandler` only
+range-checks `0–100` per bucket — 3 independent single-row `PATCH`es give it nowhere to check the
+total), so the Save button stays disabled until the merged set is valid. An inline hint under the
+field states the new-registrations-only scope explicitly so an admin doesn't assume editing this
+retroactively changes anyone's existing budget.
+`context/backend-gaps.md` gained a resolved entry for UC-15, cross-referencing the original
+request doc.
 
 ## Status
 
 Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock mode
-only**: both pages render correctly with no console errors on this worktree's dev server; the
-Category Corrections filter dropdown now shows the corrected mock category names and actually
-filters (confirmed selecting "Ăn uống" narrows the table to only matching rows). **Real mode not
-verified** — no `.env.local` exists in this checkout (no `FINVIET_API_BASE_URL`,
-`ADMIN_SHADOW_SECRET`, `BETTER_AUTH_SECRET`, or admin credentials for the deployed Render
-backend), so an actual login → real-mode round trip against `8dccd00` couldn't be exercised this
-session, same limitation as the 2026-08-17 "5 of 6 remaining stub domains" entry below hit.
+only** (this worktree's dev server, port 3101): the % field renders pre-filled from the mock
+buckets (50/30/20), the total readout updates live and the Save button's `disabled` state
+confirmed via direct DOM check (`true` at 110%, `false` back at 100%), and a real save round-trip
+(mock `PATCH` → 200 → list `GET` refetch → modal closes) confirmed via the network tab. **Real
+mode not verified** — no `.env.local`/admin credentials for the deployed Render backend exist in
+this checkout, same limitation as every other real-mode gap in this file's History.
+
+## History
+
+- 2026-08-18 — **Wire Announcements + Category Corrections to the real backend.** `finviet-be`
+  shipped both long-standing gaps in one pass (branch `Announcements-&-Category-Corrections`,
+  commit `8dccd00`, merged to `dev`): `POST`/`GET /api/admin/announcements` (fan-out broadcast +
+  history), and a real join (`Customer`/`Transaction`/`CorrectedCategory`) on
+  `GET /api/category-corrections`. Both `src/services/real/announcements.ts` and
+  `src/services/real/category-corrections.ts` — previously `HttpError(501, "Not implemented:
+  ...")` stubs — are now wired. Both domains added to `env.ts`'s `REAL_BACKED_DOMAINS`.
+  **Announcements**: `sendAnnouncement`/`listAnnouncements` call the new endpoints directly.
+  `targetAudienceCount` (the pre-send confirm dialog's recipient count) has no dedicated "active
+  customer count" endpoint — reuses `GET /api/analytics/summary`'s `activeCustomers` field (the
+  Overview dashboard's own source, and the same `IsActive` definition the backend's fan-out
+  itself uses), so the confirm count matches what will actually happen rather than being a
+  stale/fabricated number.
+  **Category Corrections**: `listCorrections`/`exportCorrections` read the joined
+  `customerEmail`/`transactionDescription`/`amount`/`correctedCategoryName` fields directly.
+  Found and fixed a real bug surfaced while wiring this: the category filter dropdown
+  (`correctedCategoryOptions`) was a hardcoded 4-name list (`"Cà phê"`, `"Dịch vụ đăng ký"`, ...)
+  that doesn't match any name in the actual seeded category catalog (`"Ăn uống"`, `"Di chuyển"`,
+  `"Giải trí"`, ... per `finviet-be`'s `V6__normalize_category_buckets.sql`) — 2 of the 4 filter
+  options would have silently returned zero results forever in real mode. Fixed
+  architecturally, not just by relabeling: `correctedCategoryOptions` was a synchronous,
+  client-bundled export, which can never reflect server-side mock/real state (env vars aren't
+  available in the browser bundle) — moved the dropdown to source live from `useCategories()`
+  (expense-type only), the same already-correctly-wired hook System Configuration's Danh mục tab
+  uses, so it now agrees with whatever category catalog is actually live in either mode. This
+  required realigning `mock/category-corrections.ts`'s seed category names/colors to match
+  `mock/categories.ts`'s actual 4 categories (same fix shape as the 2026-08-05 Scoring Weights
+  entry below, which rewrote mock criteria to match the real formula instead of leaving a
+  plausible-looking but wrong mock). The real-mode `category` filter param still resolves by
+  *name* (not id) into a real `CategoryId` via `GET /api/categories`, fetched fresh per call —
+  this list is small/admin-curated and not worth caching.
+  Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock
+  mode only**: both pages render correctly with no console errors on this worktree's dev
+  server; the Category Corrections filter dropdown now shows the corrected mock category names
+  and actually filters (confirmed selecting "Ăn uống" narrows the table to only matching rows).
+  **Real mode not verified** — no `.env.local` exists in this checkout, same limitation as the
+  2026-08-17 "5 of 6 remaining stub domains" entry below hit.
 
 ## History
 

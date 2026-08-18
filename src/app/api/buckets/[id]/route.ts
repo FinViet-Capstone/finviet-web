@@ -9,6 +9,7 @@ const BucketInputSchema = z.object({
   color: z.string().min(1),
   icon: z.string().min(1),
   sortOrder: z.number().int().min(1),
+  defaultPct: z.number().min(0).max(100),
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

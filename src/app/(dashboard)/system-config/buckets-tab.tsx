@@ -11,8 +11,8 @@ import styles from "./system-config.module.css";
 type BucketFormState = BucketInput;
 
 function toFormState(bucket: AdminBucket): BucketFormState {
-  const { nameVi, nameEn, color, icon, sortOrder } = bucket;
-  return { nameVi, nameEn, color, icon, sortOrder };
+  const { nameVi, nameEn, color, icon, sortOrder, defaultPct } = bucket;
+  return { nameVi, nameEn, color, icon, sortOrder, defaultPct };
 }
 
 export function BucketsTab() {
@@ -23,6 +23,17 @@ export function BucketsTab() {
   const [form, setForm] = useState<BucketFormState | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Tổng 3 nhóm (2 nhóm còn lại theo giá trị đã lưu + nhóm đang sửa theo form) phải = 100%,
+  // giống cách validate tổng trọng số ở tab Trọng số điểm — backend không tự kiểm tra tổng vì
+  // mỗi PATCH chỉ sửa 1 dòng độc lập, không có chỗ nào ở server để cộng dồn.
+  const totalDefaultPct = editingBucket && form
+    ? buckets.reduce(
+        (sum, item) => sum + (item.id === editingBucket.id ? form.defaultPct : item.defaultPct),
+        0
+      )
+    : 0;
+  const isTotalValid = totalDefaultPct === 100;
 
   function showToast(message: string) {
     setToast(message);
@@ -45,6 +56,8 @@ export function BucketsTab() {
       setOrderError(`Thứ tự ${form.sortOrder} đã được dùng bởi nhóm khác.`);
       return;
     }
+
+    if (!isTotalValid) return;
 
     updateBucket.mutate(
       { id: editingBucket.id, input: form },
@@ -112,7 +125,12 @@ export function BucketsTab() {
               >
                 Hủy
               </button>
-              <button type="button" className={styles.confirmButton} onClick={handleSave}>
+              <button
+                type="button"
+                className={styles.confirmButton}
+                disabled={!isTotalValid}
+                onClick={handleSave}
+              >
                 Lưu
               </button>
             </>
@@ -172,6 +190,29 @@ export function BucketsTab() {
             />
             {orderError ? <span className={styles.fieldError}>{orderError}</span> : null}
           </label>
+          <label className={styles.field}>
+            <span className={styles.label}>Tỷ lệ mặc định</span>
+            <span className={styles.weightCell}>
+              <input
+                type="number"
+                step={5}
+                min={0}
+                max={100}
+                className={styles.weightInput}
+                value={form.defaultPct}
+                onChange={(event) =>
+                  setForm((prev) => (prev ? { ...prev, defaultPct: Number(event.target.value) } : prev))
+                }
+              />
+              %
+            </span>
+          </label>
+          <p className={styles.hint}>
+            Áp dụng cho khách hàng đăng ký mới — không ảnh hưởng tỷ lệ của khách hàng hiện tại.
+          </p>
+          <span className={isTotalValid ? styles.totalOk : styles.totalError}>
+            Tổng tỷ lệ 3 nhóm: {totalDefaultPct}% {isTotalValid ? "" : "(phải bằng 100%)"}
+          </span>
         </FormModal>
       ) : null}
 
