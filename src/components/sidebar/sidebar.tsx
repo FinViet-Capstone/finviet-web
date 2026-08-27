@@ -9,6 +9,7 @@ import {
   Settings,
   Wand2,
   BookOpen,
+  Bot,
   Megaphone,
   UserCog,
   ChevronUp,
@@ -36,6 +37,7 @@ export type SidebarItemKey =
   | "system-config"
   | "category-corrections"
   | "knowledge-base"
+  | "ai-prompts"
   | "announcements"
   | "admins";
 
@@ -52,6 +54,7 @@ const items: SidebarItem[] = [
   { key: "system-config", label: "Cấu hình hệ thống", icon: Settings, href: "/system-config" },
   { key: "category-corrections", label: "Sửa danh mục AI", icon: Wand2, href: "/category-corrections" },
   { key: "knowledge-base", label: "Kho tri thức AI", icon: BookOpen, href: "/knowledge-base" },
+  { key: "ai-prompts", label: "Cấu hình AI", icon: Bot, href: "/ai-prompts" },
   { key: "announcements", label: "Thông báo", icon: Megaphone, href: "/announcements" },
   { key: "admins", label: "Quản trị viên", icon: UserCog, href: "/admins" },
 ];
