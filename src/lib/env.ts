@@ -2,6 +2,7 @@
 // domain's real/*.ts is an intentional "not implemented" stub, so it must always fall back to
 // mock regardless of the global USE_MOCK_API flag — there's no real endpoint to call yet.
 const REAL_BACKED_DOMAINS = new Set([
+  "ai-prompts",
   "overview",
   "plans",
   "admins",
@@ -16,6 +17,7 @@ const REAL_BACKED_DOMAINS = new Set([
 
 export type Domain =
   | "admins"
+  | "ai-prompts"
   | "announcements"
   | "buckets"
   | "categories"

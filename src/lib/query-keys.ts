@@ -22,6 +22,10 @@ export const queryKeys = {
   documents: {
     all: () => ["knowledge-base-documents"] as const,
   },
+  aiPrompts: {
+    all: () => ["ai-prompt-configs"] as const,
+    history: (featureKey: string) => ["ai-prompt-configs", "history", featureKey] as const,
+  },
   announcements: {
     all: () => ["announcements"] as const,
   },

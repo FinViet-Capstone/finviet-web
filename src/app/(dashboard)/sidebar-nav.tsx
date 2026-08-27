@@ -9,6 +9,7 @@ const activeKeyByPath: Record<string, SidebarItemKey> = {
   "/system-config": "system-config",
   "/category-corrections": "category-corrections",
   "/knowledge-base": "knowledge-base",
+  "/ai-prompts": "ai-prompts",
   "/announcements": "announcements",
   "/admins": "admins",
 };
