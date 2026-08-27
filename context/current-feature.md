@@ -1,40 +1,88 @@
 # Current Feature
 
-**Fix: Bucket ratio editor required manually hitting exactly 100% across 3 separate modals.**
-Reported urgently via a screenshot of `finviet-mobile`'s own "Phân bổ ngân sách" screen: its 3
-sliders auto-rebalance each other so the total is always 100% by construction, but the admin
-web's UC-15 editor (previous entry below) required opening each bucket's edit modal separately
-and manually typing a number that happened to make the *other two buckets' already-saved values*
-sum to 100 — genuinely impossible to do cleanly across 3 independent modals without doing the
-arithmetic by hand first.
-Replaced the single-bucket `defaultPct` field (removed from the "Sửa nhóm ngân sách" modal
-entirely, along with its `isTotalValid`/"Tổng tỷ lệ 3 nhóm" gating) with a dedicated "Tỷ lệ ngân
-sách mặc định" card above the bucket list: 3 sliders, one per bucket, that redistribute the
-remaining percentage across the *other two* proportionally to their current draft shares whenever
-one moves (`rebalance()` in `buckets-tab.tsx`) — same UX as the mobile screenshot, total always
-100% by construction, no manual balancing possible even in principle.
-New dedicated save path, mirroring `saveScoringCriteria`'s established shape exactly (that
-function was already the precedent cited in the previous entry's per-bucket version — this fix
-just applies it correctly): `BucketRatioInput` type, `saveBucketDefaultRatios()` in
-`services/{real,mock}/buckets.ts` (validates the merged 3-bucket total server-side-of-the-Route-
-Handler before firing any PATCH, same as `saveScoringCriteria`), a new `PUT /api/buckets/ratios`
-Route Handler + Zod schema, and `useSaveBucketRatios()`. `real/buckets.ts`'s ratio PATCH sends
-only `{ defaultPct }` per bucket (every field on `UpdateBucketRequest` is optional server-side),
-unlike the full-form PATCH the per-bucket modal still uses for name/icon/color/order.
+**Admin AI prompt configuration screen (`/ai-prompts`), wired to real `finviet-be`.** The backend
+shipped admin-tunable Gemini prompt settings (migration `V0010__ai_prompt_configs.sql` + three
+`AdminAiController` actions, all `[Authorize(Roles = "Admin")]`) with no admin UI to drive them —
+this adds it. New sidebar entry "Cấu hình AI" (between "Kho tri thức AI" and "Thông báo"), backed
+by `GET /api/ai/prompt-configs`, `PUT /api/ai/prompt-configs/{featureKey}` and
+`GET /api/ai/prompt-configs/{featureKey}/history`.
+
+The screen is a `TabBar` over the four seeded feature keys (`chat`, `weekly_report`,
+`score_comment`, `classification` — a fixed set, never created or deleted here), an editor for the
+selected feature's persona / temperature / max-output-tokens, and that feature's change history
+with a "Khôi phục" action that loads an old snapshot back into the form (the admin still has to
+press "Lưu thay đổi" to apply it — the backend has no dedicated revert endpoint, reverting *is*
+re-submitting an old snapshot). A fixed note explains that the non-negotiable safety core
+(`GeminiAiModelClient.FinancialSafetyPolicy`) is always appended after the persona in code and is
+deliberately not editable here.
+
+Standard domain wiring, same shape as every other real-backed domain: `types/ai-prompts.ts`,
+`services/{real,mock}/ai-prompts.ts` + switcher, `"ai-prompts"` added to `Domain` /
+`REAL_BACKED_DOMAINS` in `lib/env.ts`, Route Handlers under `src/app/api/ai-prompts/`, and
+`hooks/useAiPrompts.ts`. `lib/ai-prompt-features.ts` holds the feature keys and the value limits
+(persona ≤ 4000 chars, temperature 0–2, tokens 16–8192) in one place, mirroring
+`UpdateAiPromptConfigCommandValidator` and the migration's `CHECK` constraints, so the Route
+Handler's Zod schema and the editor's client-side validation can't drift from each other or from
+what the backend actually accepts.
+
+One deliberate detail: the editor draft is *derived* at render from the server state it was seeded
+from (`{ signature, draft }` in `useState`), not synced via `useEffect` — the repo's ESLint config
+rejects `setState` inside an effect, and this shape also means a background refetch that returned
+identical data leaves an in-progress edit alone, while a real change (a save, or another admin's
+edit) correctly resets the form to the fresh server values.
 
 ## Status
 
-Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock mode**
-(this worktree's dev server, port 3102): dragging the Nhu cầu slider from 50%→70% correctly
-rebalanced Mong muốn 30%→18% and Tiết kiệm 20%→12% (proportional to their prior 30:20 split),
-total stayed at exactly 100% throughout, "Lưu tỷ lệ" appeared only once dirty, save round-tripped
-(`PUT /api/buckets/ratios` → 200 → refetch) with no console errors, and the per-bucket "Sửa nhóm
-ngân sách" modal confirmed to no longer show any % field. **Real mode not tested in this pass** —
-the previous entry's real-mode round trip (same underlying `PATCH /api/buckets/{id}` calls, just
-reached via a different UI/mutation path) was already verified live against production; this
-fix's live real-mode confirmation is pending the next deploy.
+Code complete — `npm run build` and `npm run lint` clean. **Verified live in the browser, mock
+mode** (dev server on port 3000): all four feature tabs load their own persona/temperature/token
+values and their own history rows; editing enables "Hoàn tác"/"Lưu thay đổi"; saving round-trips
+(`PUT /api/ai-prompts/chat` → 200 → refetch) and the footer meta plus a new history row update;
+"Hoàn tác" restores the server values and re-disables both buttons; "Khôi phục" on the seed row
+loads its 768-token snapshot back into the form; an out-of-range token value (5) is rejected
+inline with "Giới hạn token phải là số nguyên từ 16 đến 8192." without firing a request. No
+console errors.
+
+**Real mode not verified locally** — there's no `.env.local` in this worktree (no
+`FINVIET_API_BASE_URL`, no `DATABASE_URL` for better-auth, no admin credentials), so the admin JWT
+cookie `src/services/real/ai-prompts.ts` needs can't be obtained here. What *was* checked against
+production: both prompt-config paths return 401 (not 404) unauthenticated, confirming the routes
+exist as spelled, and every field of `AiPromptConfigDto`/`AiPromptConfigHistoryDto`/
+`UpdateAiPromptConfigRequest` was read off the deployed swagger rather than assumed. Live
+real-mode confirmation is pending the next Vercel deploy.
 
 ## History
+
+- 2026-08-18 — **Fix: Bucket ratio editor required manually hitting exactly 100% across 3 separate modals.**
+  Reported urgently via a screenshot of `finviet-mobile`'s own "Phân bổ ngân sách" screen: its 3
+  sliders auto-rebalance each other so the total is always 100% by construction, but the admin
+  web's UC-15 editor (previous entry below) required opening each bucket's edit modal separately
+  and manually typing a number that happened to make the *other two buckets' already-saved values*
+  sum to 100 — genuinely impossible to do cleanly across 3 independent modals without doing the
+  arithmetic by hand first.
+  Replaced the single-bucket `defaultPct` field (removed from the "Sửa nhóm ngân sách" modal
+  entirely, along with its `isTotalValid`/"Tổng tỷ lệ 3 nhóm" gating) with a dedicated "Tỷ lệ ngân
+  sách mặc định" card above the bucket list: 3 sliders, one per bucket, that redistribute the
+  remaining percentage across the *other two* proportionally to their current draft shares whenever
+  one moves (`rebalance()` in `buckets-tab.tsx`) — same UX as the mobile screenshot, total always
+  100% by construction, no manual balancing possible even in principle.
+  New dedicated save path, mirroring `saveScoringCriteria`'s established shape exactly (that
+  function was already the precedent cited in the previous entry's per-bucket version — this fix
+  just applies it correctly): `BucketRatioInput` type, `saveBucketDefaultRatios()` in
+  `services/{real,mock}/buckets.ts` (validates the merged 3-bucket total server-side-of-the-Route-
+  Handler before firing any PATCH, same as `saveScoringCriteria`), a new `PUT /api/buckets/ratios`
+  Route Handler + Zod schema, and `useSaveBucketRatios()`. `real/buckets.ts`'s ratio PATCH sends
+  only `{ defaultPct }` per bucket (every field on `UpdateBucketRequest` is optional server-side),
+  unlike the full-form PATCH the per-bucket modal still uses for name/icon/color/order.
+
+  Code complete — `npm run build`/`npm run lint` clean. **Verified live in the browser, mock mode**
+  (this worktree's dev server, port 3102): dragging the Nhu cầu slider from 50%→70% correctly
+  rebalanced Mong muốn 30%→18% and Tiết kiệm 20%→12% (proportional to their prior 30:20 split),
+  total stayed at exactly 100% throughout, "Lưu tỷ lệ" appeared only once dirty, save round-tripped
+  (`PUT /api/buckets/ratios` → 200 → refetch) with no console errors, and the per-bucket "Sửa nhóm
+  ngân sách" modal confirmed to no longer show any % field. **Real mode not tested in this pass** —
+  the previous entry's real-mode round trip (same underlying `PATCH /api/buckets/{id}` calls, just
+  reached via a different UI/mutation path) was already verified live against production; this
+  fix's live real-mode confirmation is pending the next deploy.
 
 - 2026-08-18 — **System-wide default budget allocation ratio (UC-15).** Requested via
   `context/backend-request-default-budget-ratio.md` after confirming the backend had genuinely
