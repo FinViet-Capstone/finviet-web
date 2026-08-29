@@ -540,26 +540,6 @@
   color: var(--color-text-secondary);
 }
 
-.scoringNotice {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 16px;
-  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.scoringNotice code {
-  font-size: 12px;
-  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
-  padding: 1px 4px;
-  border-radius: 4px;
-}
-
 .scoringTotals {
   display: flex;
   gap: 24px;
