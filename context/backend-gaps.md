@@ -72,10 +72,12 @@ status filter dropdown still pages through every `Search`-matching result and fi
 
 ## No account-reactivation endpoint
 
-`PUT /api/account/deactivate/{customerId}` (Admin) exists and is wired, but it's one-directional
-— there's no matching "reactivate"/"unlock" endpoint anywhere in `finviet-be`. The Users screen's
-"Mở khóa" (unlock) action throws a clear "not implemented" error in real mode rather than
-silently no-op'ing. Needs a `PUT /api/account/activate/{customerId}` (or similar) counterpart.
+**Resolved (2026-09-09).** `finviet-be` now has the counterpart `PUT /api/account/activate/{customerId}`
+(Admin), so `setUserActive` in `src/services/real/users.ts` picks `activate`/`deactivate` by the
+requested state instead of throwing on unlock. The Users screen's "Mở khóa" action works in real
+mode. One deliberate asymmetry: deactivate revokes the target's refresh tokens and activate does
+**not** restore them, so a reactivated user has to sign in again. Reactivation is also refused
+(404) for a customer who self-deleted (`DeletedAt != null`) — admin unlock only reverses an admin lock.
 
 ## Category icon upload exists but is the wrong role for this screen
 
