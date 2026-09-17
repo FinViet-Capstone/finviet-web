@@ -1,0 +1,40 @@
+.page { min-height: 100vh; background: #f5f8f6; color: #172e25; padding: 0 6vw 30px; font-family: Arial, sans-serif; }
+.header { max-width: 1120px; margin: auto; height: 90px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #dce5df; }
+.brand { font-size: 26px; font-weight: 800; text-decoration: none; color: #176344; display: flex; align-items: center; gap: 12px; }
+.brand span { font-size: 10px; letter-spacing: 2px; border: 1px solid #b9cebf; border-radius: 20px; padding: 7px 10px; }
+.hero { max-width: 790px; margin: 64px auto 40px; text-align: center; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #397757; }
+.hero h1 { font-size: clamp(30px, 4vw, 50px); line-height: 1.15; letter-spacing: -1.8px; margin: 20px 0; }
+.hero p { color: #607269; font-size: 16px; line-height: 1.7; }
+.trust { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 20px; color: #397757; }
+.content { max-width: 1120px; margin: auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; margin-top: 26px; }
+.card { background: white; border: 1px solid #dce5df; border-radius: 22px; padding: 30px; display: flex; flex-direction: column; align-items: flex-start; }
+.card h2 { font-size: 22px; margin: 18px 0; }
+.price { font-size: 36px; letter-spacing: -1.3px; font-weight: 700; margin: 0; }
+.muted { color: #607269; margin-top: 5px; }
+.card ul { padding: 24px 0; list-style: none; flex: 1; margin: 0; }
+.card li { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; line-height: 1.5; }
+.card li svg { flex-shrink: 0; color: #287954; margin-top: 2px; }
+.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; line-height: 1.4; }
+.primary { background: #176344; color: white; border: 1px solid #176344; }
+.card .primary { width: 100%; }
+.secondary { background: white; color: #176344; border: 1px solid #bdcec4; }
+.primary:disabled, .secondary:disabled { opacity: .5; cursor: not-allowed; }
+.page button:focus-visible, .page a:focus-visible, .page input:focus-visible { outline: 3px solid #d6a84a; outline-offset: 3px; }
+.login { max-width: 430px; margin: 32px auto; background: white; padding: 30px; border: 1px solid #dce5df; border-radius: 22px; }
+.login h2 { font-size: 21px; margin-bottom: 12px; }
+.login p { color: #607269; line-height: 1.6; }
+.login label { display: flex; flex-direction: column; gap: 8px; margin: 20px 0; font-size: 14px; }
+.login input { padding: 13px; border: 1px solid #bdcec4; border-radius: 9px; font-size: 16px; color: #172e25; background: white; }
+.login button { width: 100%; }
+.notice { display: flex; gap: 16px; padding: 24px; background: #e9f2eb; border: 1px solid #c4dccb; border-radius: 18px; margin: 20px 0; line-height: 1.6; }
+.notice p { margin: 6px 0 14px; }
+.error { background: #fff0ec; color: #9e352a; padding: 16px; border-radius: 10px; max-width: 1120px; margin: 16px auto; line-height: 1.6; }
+.checkout { border: 1px solid #b9cebf; border-radius: 22px; padding: 32px; background: white; text-align: center; max-width: 680px; margin: 28px auto; }
+.checkout h2 { font-size: 24px; margin: 16px 0; }
+.checkout p { line-height: 1.7; margin: 16px 0; }
+.checkout small { display: block; margin-top: 20px; color: #607269; overflow-wrap: anywhere; }
+.amount { font-size: 30px; font-weight: 700; }
+.footer { text-align: center; color: #607269; font-size: 12px; margin: 48px auto 12px; }
+@media (max-width: 600px) { .page { padding: 0 20px 24px; } .hero { margin-top: 36px; } .header { height: 76px; } .checkout, .card, .login { padding: 24px; } .brand span { display: none; } }
