@@ -8,7 +8,7 @@ interface CredentialStepProps {
   username: string;
   password: string;
   loading: boolean;
-  error: boolean;
+  error: string | null;
   onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: () => void;
@@ -38,7 +38,7 @@ export function CredentialStep({
       {error && (
         <div className={styles.errorBanner}>
           <AlertCircle size={18} strokeWidth={2} />
-          <span>Tên đăng nhập hoặc mật khẩu không đúng</span>
+          <span>{error}</span>
         </div>
       )}
 
