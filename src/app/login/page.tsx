@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [credentialError, setCredentialError] = useState(false);
+  const [credentialError, setCredentialError] = useState<string | null>(null);
 
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [verifyMode, setVerifyMode] = useState<TotpVerifyMode>("totp");
@@ -30,10 +30,10 @@ export default function LoginPage() {
   const verifyBackupCode = useVerifyBackupCode();
 
   function handleCredentialSubmit() {
-    setCredentialError(false);
+    setCredentialError(null);
 
     if (!username.trim() || !password.trim()) {
-      setCredentialError(true);
+      setCredentialError("Tên đăng nhập hoặc mật khẩu không đúng");
       return;
     }
 
@@ -54,7 +54,7 @@ export default function LoginPage() {
             router.push("/overview");
           }
         },
-        onError: () => setCredentialError(true),
+        onError: (err) => setCredentialError(err instanceof Error ? err.message : "Đăng nhập thất bại"),
       }
     );
   }

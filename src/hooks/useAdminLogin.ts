@@ -18,7 +18,21 @@ export function useAdminLogin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const body = (await res.json()) as { success: boolean; data: AdminLoginResult | null; error: string | null };
+
+      // A 500 with an empty body (e.g. database unreachable on production) causes res.json() to
+      // throw a parse error, which previously surfaced as an opaque "wrong credentials" message.
+      // Parse defensively so the real failure reason reaches the UI.
+      let body: { success: boolean; data: AdminLoginResult | null; error: string | null };
+      try {
+        body = await res.json();
+      } catch {
+        throw new Error(
+          res.status >= 500
+            ? "Lỗi máy chủ. Vui lòng thử lại sau."
+            : `Đăng nhập thất bại (HTTP ${res.status})`,
+        );
+      }
+
       if (!body.success || body.data === null) {
         throw new Error(body.error ?? "Đăng nhập thất bại");
       }
