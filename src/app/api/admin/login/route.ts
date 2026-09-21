@@ -89,6 +89,19 @@ function withCookiesFrom(authResponse: Response, adminJwtCookie: string, body: L
 }
 
 export async function POST(request: Request) {
+  try {
+    return await handleLogin(request);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[admin/login] unhandled error:", message);
+    return NextResponse.json(
+      { success: false, data: null, error: message },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleLogin(request: Request) {
   const { username, password } = await request.json();
 
   if (!username || !password) {
@@ -117,15 +130,6 @@ export async function POST(request: Request) {
   const maxAgeSeconds = Math.floor((new Date(accessTokenExpiry).getTime() - Date.now()) / 1000);
   const adminJwtCookie = buildAdminJwtCookie(accessToken, maxAgeSeconds);
 
-  // Existing shadow account — normal login. (better-auth's signInEmail returns the same generic
-  // "invalid email or password" error for both "wrong password" and "no such user," by design, to
-  // prevent user enumeration — so we can't distinguish them here, and don't need to: a derived-
-  // password mismatch on an internal, server-only-generated password should never happen outside
-  // of first login or a bug.)
-  //
-  // `asResponse: true` does NOT reliably throw on failure — a "no such user" outcome can come back
-  // as a normal (non-2xx) Response rather than a rejected promise, which a bare try/catch would
-  // silently treat as success. Check `.ok` explicitly instead of relying on catching an exception.
   let signInResponse: Response | null = null;
   try {
     signInResponse = await auth.api.signInEmail({
@@ -137,20 +141,11 @@ export async function POST(request: Request) {
   }
 
   if (signInResponse?.ok) {
-    // A user with 2FA enabled gets a pending-2FA cookie here instead of a full session — inspect
-    // the body to tell them apart (both are 2xx from better-auth's own perspective).
     const body = (await signInResponse.clone().json()) as { twoFactorRedirect?: boolean };
     const step: LoginStep = body.twoFactorRedirect ? { step: "totp" } : { step: "done" };
     return withCookiesFrom(signInResponse, adminJwtCookie, step);
   }
 
-  // First login for this admin — provision the shadow account. `emailAndPassword.disableSignUp`
-  // above blocks the ordinary signUpEmail endpoint even when called server-side (it's enforced
-  // inside the shared handler both the HTTP route and auth.api.signUpEmail funnel through) — the
-  // admin plugin's createUser is the sanctioned way to provision an account outside public
-  // self-registration; called here with no headers/request context, it also skips that plugin's
-  // own permission check (reserved for its own HTTP-exposed route, which still requires a session).
-  // createUser doesn't establish a session by itself, so signInEmail right after does that part.
   const createResult = await auth.api.createUser({
     body: {
       email: profile.email,
