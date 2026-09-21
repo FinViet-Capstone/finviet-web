@@ -3,7 +3,8 @@ import { getFinvietAdminToken } from "@/lib/finviet-admin-token";
 import type { AdminCustomerSummary, ListUsersParams, UsersListResult } from "@/types/users";
 
 // Backed by finviet-be's UsersController (api/users, GET only) and AccountController
-// (PUT /api/account/deactivate/{id}), both [Authorize(Roles = "Admin")].
+// (PUT /api/account/deactivate/{id} and PUT /api/account/activate/{id}), all
+// [Authorize(Roles = "Admin")].
 //
 // UserResponseDto's totalTransactions/totalWallets/subscriptionPlanCode (added on the fix-dto
 // branch — see context/backend-gaps.md) are subquery counts joined server-side, not a full
@@ -111,17 +112,14 @@ export async function listUsers(params: ListUsersParams): Promise<UsersListResul
 }
 
 export async function setUserActive(id: string, isActive: boolean): Promise<AdminCustomerSummary> {
-  if (isActive) {
-    throw new Error("finviet-be chưa có API mở khóa tài khoản — chỉ hỗ trợ khóa (deactivate).");
-  }
-
   const headers = await authHeaders();
-  await finvietApi.put(`/api/account/deactivate/${id}`, null, { headers });
+  const action = isActive ? "activate" : "deactivate";
+  await finvietApi.put(`/api/account/${action}/${id}`, null, { headers });
 
-  // DeactivateAccountCommandHandler returns a plain status string, not the updated customer —
+  // Account command handlers return a plain status string, not the updated customer —
   // the mutation's onSuccess (src/hooks/useUsers.ts) invalidates the users list query right
   // after, which is what actually refreshes the table row. This return value is never rendered.
-  return { id, name: "", email: "", isActive: false, createdAt: "", totalTransactions: 0, totalWallets: 0, plan: "free" };
+  return { id, name: "", email: "", isActive, createdAt: "", totalTransactions: 0, totalWallets: 0, plan: "free" };
 }
 
 export async function triggerPasswordReset(_id: string, email: string): Promise<{ sent: boolean }> {

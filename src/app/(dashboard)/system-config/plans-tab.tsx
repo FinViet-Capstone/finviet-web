@@ -130,6 +130,7 @@ export function PlansTab() {
   return (
     <div className={styles.tabPanel}>
       <div className={styles.toolbar}>
+        <a href="/subscription" target="_blank" rel="noopener noreferrer" className={styles.cancelButton}>Mở trang đăng ký · VNPay QR ↗</a>
         <button type="button" className={styles.addButton} onClick={openAddForm}>
           <Plus size={16} strokeWidth={2} />
           Thêm gói

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Save, TriangleAlert } from "lucide-react";
+import { Save } from "lucide-react";
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { useSaveScoringCriteria, useScoringCriteria } from "@/hooks/useScoringCriteria";
 import type { AdminScoringCriterion } from "@/types/scoring";
@@ -80,13 +80,6 @@ export function ScoringTab() {
 
   return (
     <div className={styles.tabPanel}>
-      <div className={styles.scoringNotice}>
-        <TriangleAlert size={16} strokeWidth={2} />
-        Trọng số ở đây phản ánh công thức thực tế trong <code>SpendingScoreService.cs</code>, nhưng chưa được đọc từ
-        bảng <code>ScoringCriterion</code> — chỉnh sửa ở đây sẽ không ảnh hưởng đến điểm chi tiêu thật cho đến khi
-        backend được kết nối lại. Xem <code>context/backend-gaps.md</code>.
-      </div>
-
       {isLoading ? <p className={styles.hint}>Đang tải…</p> : null}
       {isError ? <p className={styles.fieldError}>Không thể tải trọng số điểm.</p> : null}
       {saveError ? <p className={styles.fieldError}>{saveError}</p> : null}

@@ -4,6 +4,7 @@ Found while building out the admin dashboard's mock/frontend screens. Each entry
 where either no real `finviet-be` endpoint exists yet, or a real endpoint/entity doesn't fully
 satisfy what the frontend needs. For the backend team to pick up — not tracked as frontend work.
 
+
 **Note (2026-08-17):** several entries below were written when a domain was still mock-only and
 have since gone stale — the backend team shipped the endpoint independently without this file
 being updated. Before trusting an entry here, check the real endpoint against
@@ -71,10 +72,12 @@ status filter dropdown still pages through every `Search`-matching result and fi
 
 ## No account-reactivation endpoint
 
-`PUT /api/account/deactivate/{customerId}` (Admin) exists and is wired, but it's one-directional
-— there's no matching "reactivate"/"unlock" endpoint anywhere in `finviet-be`. The Users screen's
-"Mở khóa" (unlock) action throws a clear "not implemented" error in real mode rather than
-silently no-op'ing. Needs a `PUT /api/account/activate/{customerId}` (or similar) counterpart.
+**Resolved (2026-09-09).** `finviet-be` now has the counterpart `PUT /api/account/activate/{customerId}`
+(Admin), so `setUserActive` in `src/services/real/users.ts` picks `activate`/`deactivate` by the
+requested state instead of throwing on unlock. The Users screen's "Mở khóa" action works in real
+mode. One deliberate asymmetry: deactivate revokes the target's refresh tokens and activate does
+**not** restore them, so a reactivated user has to sign in again. Reactivation is also refused
+(404) for a customer who self-deleted (`DeletedAt != null`) — admin unlock only reverses an admin lock.
 
 ## Category icon upload exists but is the wrong role for this screen
 
@@ -92,6 +95,11 @@ Resolved — `SpendingScoreService.cs` reads live from `ScoringCriterion` as of 
 /api/scoring-criteria` (Admin) are wired in `src/services/real/scoring.ts`; saving on the System
 Configuration → "Trọng số điểm" screen now has a real effect on live scores. (Left this entry as
 a record that it *was* a gap, since the original note is still referenced elsewhere.)
+
+Addendum (2026-08-28): the UI banner on the "Trọng số điểm" screen itself was still showing the
+old warning — the doc entry above was updated but the actual React component was not, so admins
+saw the opposite of what the deployed backend does for two weeks. Caught during a pre-defense
+review pass; the banner and its now-unused `.scoringNotice` CSS were removed.
 
 ## Bucket.IsLocked vs. "admin can edit everything"
 
