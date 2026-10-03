@@ -776,3 +776,19 @@ real-mode confirmation is pending the next Vercel deploy.
   `ADMIN_SHADOW_SECRET`, so admin login can't run here; live verification happens after both repos
   deploy. After deploy, the existing `financialmanagement` document will show the re-upload notice
   until it is uploaded again.
+
+- 2026-10-03 - **Remove the customer subscription checkout page (`/subscription`).**
+  Found while checking both clients against the latest `finviet-be` (PRs #159, #160, #161): the
+  page added in `c478a4e` ("feat: add customer subscription checkout", PR #24) still called the
+  VNPay-era `POST /api/subscriptions/subscribe` and `GET /api/subscriptions/payments/{id}`, which
+  no longer exist since payOS replaced VNPay (`finviet-be` V0012) - both return 404 in production,
+  so any customer who logged in there could not check out.
+  Per product decision, customers only subscribe through the mobile app, so the page was removed
+  rather than ported to payOS: `src/app/subscription/` (page, layout, styles),
+  `src/app/api/subscription/route.ts` (which also collected customer passwords to mint a checkout
+  cookie), `src/types/subscription.ts`, `tests/subscription-api.test.cjs`, and the
+  "Mở trang đăng ký · VNPay QR" link in System Configuration > Gói dịch vụ.
+  The admin plan CRUD (`/api/admin/subscription-plans`) is untouched.
+  `npm run build` (exit 0, `/subscription` and `/api/subscription` gone from the route list) and
+  `npm run lint` clean.
+
