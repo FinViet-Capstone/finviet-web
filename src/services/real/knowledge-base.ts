@@ -1,12 +1,11 @@
 import { finvietApi, unwrap } from "@/lib/finviet-api";
 import { getFinvietAdminToken } from "@/lib/finviet-admin-token";
-import type { AdminDocument, DocumentUploadInput } from "@/types/knowledge-base";
+import type { AdminDocument, DocumentFile, DocumentUploadInput } from "@/types/knowledge-base";
 
 // Backed by finviet-be's AdminAiController (api/ai/documents), [Authorize(Roles = "Admin")].
 // Ingestion (POST) is synchronous — IngestPdfAsync chunks the PDF before returning — so there is
 // no real "processing" state to model: every document GET /api/ai/documents returns already has
-// its final chunkCount. status is always "ready" in real mode; DocumentStatus stays a union type
-// only because mock mode still simulates a "processing" row for demo purposes.
+// its final chunkCount, and status is always "ready".
 //
 // DELETE has no backend endpoint yet (see context/backend-gaps.md) — left stubbed below,
 // matching the already-disabled delete button in src/app/(dashboard)/knowledge-base/page.tsx.
@@ -18,6 +17,7 @@ interface RagDocumentResponseDto {
   uri: string | null;
   createdAt: string;
   chunkCount: number;
+  hasFile: boolean;
 }
 
 async function authHeaders() {
@@ -39,6 +39,7 @@ function toAdminDocument(dto: RagDocumentResponseDto): AdminDocument {
     status: "ready",
     chunkCount: dto.chunkCount,
     uploadedAtLabel: formatUploadedAt(dto.createdAt),
+    hasFile: dto.hasFile,
   };
 }
 
@@ -67,7 +68,21 @@ export async function uploadDocument(input: DocumentUploadInput): Promise<AdminD
     { headers },
   );
   const id = unwrap(res);
-  return { id, title: input.title, status: "ready", chunkCount: null, uploadedAtLabel: "Hôm nay" };
+  return { id, title: input.title, status: "ready", chunkCount: null, uploadedAtLabel: "Hôm nay", hasFile: true };
+}
+
+// The original uploaded PDF, stored in finviet-be's database (rag_document_file). 404 for documents
+// uploaded before that storage existed — those must be re-uploaded.
+export async function getDocumentFile(id: string): Promise<DocumentFile> {
+  const headers = await authHeaders();
+  const res = await finvietApi.get<ArrayBuffer>(`/api/ai/documents/${encodeURIComponent(id)}/file`, {
+    headers,
+    responseType: "arraybuffer",
+  });
+  return {
+    content: res.data,
+    contentType: String(res.headers["content-type"] ?? "application/pdf"),
+  };
 }
 
 export async function deleteDocument(_id: string): Promise<{ id: string }> {

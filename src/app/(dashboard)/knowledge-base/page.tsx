@@ -5,13 +5,15 @@ import { CheckCircle2, Eye, FileText, Plus, Trash2, Upload } from "lucide-react"
 import { ConfirmationModal } from "@/components/confirmation-modal/confirmation-modal";
 import { FormModal } from "@/components/form-modal/form-modal";
 import { useDeleteDocument, useDocuments, useUploadDocument } from "@/hooks/useDocuments";
+import { DocumentPreviewModal } from "./document-preview-modal";
 import type { AdminDocument } from "@/types/knowledge-base";
 import styles from "./knowledge-base.module.css";
 
 type UploadStep = "idle" | "progress" | "success";
 
 const PROGRESS_INTERVAL_MS = 150;
-const PROGRESS_STEP = 12;
+const PROGRESS_STEP = 6;
+const PROGRESS_CEILING = 90;
 
 export default function KnowledgeBasePage() {
   const { data: documents = [], isLoading, isError } = useDocuments();
@@ -63,39 +65,41 @@ export default function KnowledgeBasePage() {
     }
   }
 
+  function stopProgressTimer() {
+    if (progressTimerRef.current !== null) {
+      window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+  }
+
   function handleStartUpload() {
     if (!file || !title.trim()) return;
     setUploadStep("progress");
     setProgress(0);
     setUploadError(null);
 
+    // finviet-be extracts, chunks and embeds the PDF before responding, so there is no real byte
+    // progress to report: the bar creeps toward PROGRESS_CEILING while the request is in flight and
+    // only completes (and shows success) once the server has actually accepted the document.
+    progressTimerRef.current = window.setInterval(() => {
+      setProgress((prev) => Math.min(PROGRESS_CEILING, prev + PROGRESS_STEP));
+    }, PROGRESS_INTERVAL_MS);
+
     const formData = new FormData();
     formData.set("title", title.trim());
     formData.set("file", file);
     uploadDocument.mutate(formData, {
+      onSuccess: () => {
+        stopProgressTimer();
+        setProgress(100);
+        setUploadStep("success");
+      },
       onError: (err) => {
-        if (progressTimerRef.current !== null) {
-          window.clearInterval(progressTimerRef.current);
-          progressTimerRef.current = null;
-        }
+        stopProgressTimer();
         setUploadStep("idle");
         setUploadError(err instanceof Error ? err.message : "Không thể tải lên tài liệu.");
       },
     });
-
-    progressTimerRef.current = window.setInterval(() => {
-      setProgress((prev) => {
-        const next = Math.min(100, prev + PROGRESS_STEP);
-        if (next >= 100) {
-          if (progressTimerRef.current !== null) {
-            window.clearInterval(progressTimerRef.current);
-            progressTimerRef.current = null;
-          }
-          setUploadStep("success");
-        }
-        return next;
-      });
-    }, PROGRESS_INTERVAL_MS);
   }
 
   function handleUploadDone() {
@@ -312,7 +316,7 @@ export default function KnowledgeBasePage() {
               Tải lên thành công
             </h2>
             <p className={styles.successDescription}>
-              {file?.name} đang được xử lý và sẽ sẵn sàng sau ít phút.
+              {file?.name} đã được nạp vào kho tri thức và sẵn sàng cho AI sử dụng.
             </p>
             <div className={styles.successFooter}>
               <button type="button" className={styles.confirmButton} onClick={handleUploadDone}>
@@ -324,30 +328,11 @@ export default function KnowledgeBasePage() {
       ) : null}
 
       {previewTarget ? (
-        <FormModal
-          title="Xem trước tài liệu"
+        <DocumentPreviewModal
+          key={previewTarget.id}
+          document={previewTarget}
           onClose={() => setPreviewTarget(null)}
-          footer={
-            <button type="button" className={styles.cancelButton} onClick={() => setPreviewTarget(null)}>
-              Đóng
-            </button>
-          }
-        >
-          <div className={styles.previewCard}>
-            <span className={styles.previewIcon}>
-              <FileText size={24} strokeWidth={2} />
-            </span>
-            <div className={styles.previewMeta}>
-              <span className={styles.previewTitle}>{previewTarget.title}</span>
-              <span className={styles.previewDetail}>{previewTarget.chunkCount ?? "—"} đoạn nội dung</span>
-              <span className={styles.previewDetail}>Tải lên: {previewTarget.uploadedAtLabel}</span>
-            </div>
-          </div>
-          <p className={styles.previewNote}>
-            Chưa có nội dung file thực tế để xem trước — bản demo này chỉ hiển thị metadata. Xem trước PDF thật cần
-            backend cung cấp <code>RagDocument.Uri</code>.
-          </p>
-        </FormModal>
+        />
       ) : null}
 
       <ConfirmationModal
