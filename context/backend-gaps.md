@@ -118,22 +118,24 @@ an `IsActive` (or similar) column on `SubscriptionPlan`, which doesn't exist tod
 plan with live `CustomerSubscription` rows pointing at it would also be a referential-integrity
 problem regardless of the UI decision.
 
-## Knowledge Base preview needs the real document Uri
+## Knowledge Base preview needs the real document file
 
-The Knowledge Base "Xem trước" (preview) button currently only shows document metadata
-(title/status/chunk count) since there's no real file content available anywhere in the current
-flow. `RagDocumentResponse` (backing `GET /api/ai/documents`, now wired in
-`src/services/real/knowledge-base.ts`) already has a `uri` field for this — the preview should
-open/embed that `Uri` instead of the metadata-only placeholder. Not done in this pass, since it's
-a UI change beyond wiring the existing list/upload calls.
+**Resolved (2026-10-03).** The `uri` this entry originally pointed at turned out to be unusable:
+`finviet-be` wrote uploaded PDFs to `wwwroot/documents/` on Render's ephemeral disk, so every
+redeploy deleted them (production `GET /documents/{id}.pdf` returned 404). `finviet-be` PR #159
+(issue #158) stores the bytes in Postgres (`rag_document_file`, migration V0014), adds an
+admin-only `GET /api/ai/documents/{id}/file`, adds `hasFile` to `RagDocumentResponse`, and stops
+`GET /api/ai/documents` from listing customers' private weekly-report documents. The preview modal
+now embeds the PDF through `GET /api/knowledge-base/documents/[id]/file`. Documents uploaded before
+that change have `hasFile: false` and must be re-uploaded to become previewable.
 
 ## Knowledge Base delete has no backend endpoint
 
 Still accurate. The Knowledge Base table's `Xóa` (delete) action is disabled in the UI (with a
 tooltip) since `finviet-be`'s `AdminAiController` only exposes `POST`/`GET /api/ai/documents` —
 no `DELETE`. The mutation hook (`useDeleteDocument`), its Route Handler
-(`src/app/api/knowledge-base/documents/[id]/route.ts`), and the mock service's delete
-implementation are all still intact so mock-mode demo behavior keeps working and re-enabling the
-button is a one-line change once a real `DELETE /api/ai/documents/{id}` exists. Needs: a `DELETE`
+(`src/app/api/knowledge-base/documents/[id]/route.ts`) are still intact, so re-enabling the button
+is a small change once a real `DELETE /api/ai/documents/{id}` exists (the mock implementation was
+removed on 2026-10-03 along with the rest of this domain's mock mode). Needs: a `DELETE`
 action on `AdminAiController` (Admin role) that removes the `RagDocument` row (and its `RagChunk`
 rows / uploaded file) — no CQRS command exists for this today.
