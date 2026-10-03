@@ -737,3 +737,42 @@ real-mode confirmation is pending the next Vercel deploy.
   `npm run build` and `npm run lint` both clean. Merged on branch `chore/sync-dev-main` (off
   `origin/dev`, merging `origin/main` in), then fast-forwarded into both `dev` and `main` so
   neither branch has to re-resolve the same conflicts later.
+
+- 2026-10-03 - **Fix: Knowledge Base preview showed only a placeholder; uploaded PDFs were being lost.**
+  Reported: "Xem trước" in "Kho tri thức AI" only showed "Chưa có nội dung file thực tế để xem
+  trước ... cần backend cung cấp RagDocument.Uri".
+  Reproduced against production first: the backend did set `uri` (`/documents/{id}.pdf`), but
+  requesting it returned 404 while `/health` was 200.
+  `finviet-be` wrote uploaded PDFs to `wwwroot/documents/` on Render's ephemeral container disk,
+  so every redeploy or free-tier spin-down deleted them; the RAG chunks survived in Postgres, so
+  the AI kept working and nothing looked broken.
+  The same check showed a second bug: the admin list included a customer's private weekly report
+  ("Báo cáo tuần 10/08 - 16/08/2026"), because `GET /api/ai/documents` had no filter.
+  Backend half: `finviet-be` PR #159 (issue #158) stores the bytes in Postgres (V0014
+  `rag_document_file`), adds admin-only `GET /api/ai/documents/{id}/file`, adds `hasFile`, and
+  lists only global PDFs.
+  Frontend half (branch `fix/knowledge-base-pdf-preview`): new
+  `GET /api/knowledge-base/documents/[id]/file` Route Handler that attaches the admin JWT
+  server-side and streams the PDF back (`Cache-Control: private, no-store`); because the browser
+  loads it directly (iframe and "Mở trong tab mới"), failures render a small readable HTML page
+  instead of a JSON envelope.
+  The preview modal is now its own component (`document-preview-modal.tsx`) on a new `size="wide"`
+  variant of the shared `FormModal`, embedding the PDF with a loading state; documents with
+  `hasFile: false` show a "tải lên lại" notice instead.
+  `finvietApi`'s error interceptor now decodes binary (`arraybuffer`) error bodies, so finviet-be's
+  real 404 message survives file requests.
+  Also fixed in the same flow: the upload modal's progress bar was a pure timer that showed
+  "Tải lên thành công" after ~1.3s regardless of whether the upload had finished (real ingestion
+  embeds every chunk through Gemini and takes longer), so a later failure surfaced only after the
+  success screen.
+  The bar now creeps to 90% while the request is in flight and success shows only on the
+  mutation's `onSuccess`; the stale mock-era copy "đang được xử lý và sẽ sẵn sàng sau ít phút" now
+  says the document is ready.
+  Per product direction ("no more mock data / mock API"), the knowledge-base domain is now
+  real-only: `src/services/mock/knowledge-base.ts` is deleted and the domain is removed from
+  `env.ts`'s mock switch.
+  `npm run build` and `npm run lint` clean.
+  **Not verified in a browser locally**: this checkout has no `DATABASE_URL`/`BETTER_AUTH_SECRET`/
+  `ADMIN_SHADOW_SECRET`, so admin login can't run here; live verification happens after both repos
+  deploy. After deploy, the existing `financialmanagement` document will show the re-upload notice
+  until it is uploaded again.

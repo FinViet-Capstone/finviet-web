@@ -229,17 +229,66 @@
   color: var(--color-text-secondary);
 }
 
-.previewNote {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
+.pdfFrameWrapper {
+  position: relative;
+  height: 70vh;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-background);
 }
 
-.previewNote code {
-  font-size: 11px;
-  background: var(--color-background);
-  padding: 1px 4px;
-  border-radius: 4px;
+.pdfFrame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.pdfFrameLoading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.missingFile {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.missingFileIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-warning);
+}
+
+.openInTabLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  padding: 8px 4px;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.openInTabLink:hover {
+  text-decoration: underline;
 }
 
 /* Upload modal — idle state */

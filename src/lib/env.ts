@@ -10,7 +10,6 @@ const REAL_BACKED_DOMAINS = new Set([
   "buckets",
   "categories",
   "category-corrections",
-  "knowledge-base",
   "scoring",
   "users",
 ]);
@@ -22,7 +21,6 @@ export type Domain =
   | "buckets"
   | "categories"
   | "category-corrections"
-  | "knowledge-base"
   | "overview"
   | "plans"
   | "scoring"

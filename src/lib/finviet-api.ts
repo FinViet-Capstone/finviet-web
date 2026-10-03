@@ -22,6 +22,15 @@ interface FinvietEnvelope<T> {
 // indication of what to fix. `errors`, when present with real messages, is strictly more
 // specific than `message` and is preferred.
 function extractErrorMessage(data: unknown): string | undefined {
+  // Requests made with responseType "arraybuffer" (file downloads) get their JSON error envelope
+  // back as raw bytes, so decode it before looking for the message.
+  if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+    try {
+      return extractErrorMessage(JSON.parse(new TextDecoder().decode(data)));
+    } catch {
+      return undefined;
+    }
+  }
   if (!data || typeof data !== "object") return undefined;
   const { message, errors } = data as { message?: unknown; errors?: unknown };
   if (errors && typeof errors === "object") {

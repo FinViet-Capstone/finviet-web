@@ -9,12 +9,14 @@ interface FormModalProps {
   onClose: () => void;
   children: ReactNode;
   footer: ReactNode;
+  /** "wide" for content that needs room, e.g. an embedded document preview. */
+  size?: "default" | "wide";
 }
 
-export function FormModal({ title, onClose, children, footer }: FormModalProps) {
+export function FormModal({ title, onClose, children, footer, size = "default" }: FormModalProps) {
   return (
     <div className={styles.overlay}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
+      <div className={size === "wide" ? `${styles.modal} ${styles.modalWide}` : styles.modal} role="dialog" aria-modal="true" aria-labelledby="form-modal-title">
         <div className={styles.header}>
           <h2 id="form-modal-title" className={styles.title}>
             {title}
